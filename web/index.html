@@ -35,9 +35,64 @@
     justify-content: center;
     text-shadow: 0 0 2px rgba(0,255,102,0.5);
   }
+  .layout {
+    width: 100%;
+    max-width: 980px;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  .guide {
+    width: 300px;
+    flex-shrink: 0;
+    border: 3px double var(--border);
+    padding: 14px 16px;
+    position: sticky;
+    top: 24px;
+  }
+  .guide h2 {
+    font-size: 13px;
+    margin: 0 0 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--accent);
+  }
+  .guide h2::before { content: "=== "; }
+  .guide h2::after { content: " ==="; }
+  .guide ol {
+    margin: 0;
+    padding: 0 0 0 18px;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .guide li {
+    margin-bottom: 16px;
+  }
+  .guide li::marker {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .guide .hi {
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .guide hr {
+    border: none;
+    border-top: 1px dashed var(--border);
+    margin: 14px 0;
+  }
+  .guide .note {
+    font-size: 11px;
+    color: var(--muted);
+  }
   main {
     width: 100%;
     max-width: 640px;
+    min-width: 0;
+  }
+  @media (max-width: 760px) {
+    .layout { flex-direction: column; }
+    .guide { width: 100%; position: static; }
   }
   .titlebar {
     border: 3px double var(--border);
@@ -238,6 +293,18 @@
 </style>
 </head>
 <body>
+<div class="layout">
+<aside class="guide">
+  <h2>사용법</h2>
+  <ol>
+    <li>강의안(PPT), 위 <span class="hi">GPT 프롬프트</span>(복사 버튼), 녹취록 TXT 파일<br/>이 3개를 ChatGPT에 던진다.</li>
+    <li>ChatGPT가 만들어주는 <span class="hi">정리된 TXT</span> 파일을 받는다.</li>
+    <li>이 페이지에 <span class="hi">원본 강의안(PPT)</span>과 방금 받은 <span class="hi">정리된 TXT</span> 두 개를 넣는다.</li>
+    <li><span class="hi">[메모 입력 실행]</span> 버튼을 누른다.</li>
+  </ol>
+  <hr/>
+  <p class="note">→ 녹취록이 슬라이드 메모(노트)로 삽입된 PPT 파일이 다운로드됩니다.</p>
+</aside>
 <main>
   <div class="titlebar">
     <h1>board1 web</h1>
@@ -275,6 +342,7 @@
 
   <footer class="bar">board1.exe — LOCAL PROCESSING ONLY — NO UPLOAD</footer>
 </main>
+</div>
 
 <script type="module">
   import init, { importNotes } from "./pkg/board1_web.js";
