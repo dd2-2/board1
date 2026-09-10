@@ -120,12 +120,52 @@
     text-decoration: none;
     font-size: 14px;
   }
+  .prompt-section {
+    margin-bottom: 24px;
+  }
+  .prompt-section h2 {
+    font-size: 14px;
+    margin: 0 0 10px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .prompt-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .prompt-card button {
+    width: auto;
+    padding: 6px 14px;
+    font-size: 12px;
+    margin-top: 0;
+    flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
 <main>
   <h1>board1 (web)</h1>
   <p class="sub">대본 TXT("Np" 페이지 표시)를 PPT 슬라이드 메모에 입력합니다. Windows/Mac 상관없이 브라우저에서 동작하며, 파일은 서버로 전송되지 않고 이 브라우저 안에서만 처리됩니다.</p>
+
+  <div class="prompt-section">
+    <h2>GPT 프롬프트 (PDF+녹취 → 페이지별 대본 생성용)</h2>
+    <div class="prompt-card">
+      <span>원문 표시 포함 (--아래 교수님원문--)</span>
+      <button data-prompt="with">복사</button>
+    </div>
+    <div class="prompt-card">
+      <span>원문 표시 없음</span>
+      <button data-prompt="without">복사</button>
+    </div>
+  </div>
 
   <div class="field">
     <label>PPTX 파일</label>
@@ -156,6 +196,26 @@
 
   let wasmReady = false;
   init().then(() => { wasmReady = true; updateButton(); });
+
+  const PROMPT_FILES = {
+    with: "./assets/prompts/with-original.txt",
+    without: "./assets/prompts/without-original.txt",
+  };
+  document.querySelectorAll("[data-prompt]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const key = btn.dataset.prompt;
+      try {
+        const text = await (await fetch(PROMPT_FILES[key])).text();
+        await navigator.clipboard.writeText(text);
+        const original = btn.textContent;
+        btn.textContent = "복사됨";
+        setTimeout(() => { btn.textContent = original; }, 1500);
+      } catch (e) {
+        btn.textContent = "복사 실패";
+        setTimeout(() => { btn.textContent = "복사"; }, 1500);
+      }
+    });
+  });
 
   function updateButton() {
     runBtn.disabled = !(wasmReady && pptxInput.files[0] && txtInput.files[0]);
