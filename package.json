@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
+    "tauri": "tauri",
     "build:web": "tsc -b && vite build",
     "build:tauri": "tauri build --no-bundle",
     "build:portable": "npm run build:web && tauri build --no-bundle && node scripts/create-portable.mjs",
