@@ -7,153 +7,243 @@
 <style>
   :root {
     color-scheme: dark;
-    --bg: #0F1115;
-    --panel: #171A21;
-    --border: #262B36;
-    --text: #E6E8EC;
-    --muted: #8B93A7;
-    --accent: #2563EB;
-    --ok: #22C55E;
-    --err: #EF4444;
+    --bg: #000000;
+    --panel: #000814;
+    --border: #00FF66;
+    --text: #00FF66;
+    --muted: #00A8FF;
+    --accent: #FFB000;
+    --ok: #00FF66;
+    --err: #FF3B3B;
   }
   * { box-sizing: border-box; }
+  html { background: var(--bg); }
   body {
     margin: 0;
     background: var(--bg);
+    background-image: repeating-linear-gradient(
+      0deg,
+      rgba(0,255,102,0.035) 0px,
+      rgba(0,255,102,0.035) 1px,
+      transparent 1px,
+      transparent 3px
+    );
     color: var(--text);
-    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
-    padding: 32px 16px 64px;
+    font-family: "Courier New", "D2Coding", "나눔고딕코딩", monospace;
+    padding: 24px 12px 64px;
     display: flex;
     justify-content: center;
+    text-shadow: 0 0 2px rgba(0,255,102,0.5);
   }
   main {
     width: 100%;
     max-width: 640px;
   }
+  .titlebar {
+    border: 3px double var(--border);
+    padding: 10px 14px;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .titlebar .sys {
+    color: var(--muted);
+    font-size: 12px;
+  }
   h1 {
     font-size: 20px;
-    margin: 0 0 4px;
+    margin: 0;
+    letter-spacing: 2px;
+    text-transform: uppercase;
   }
+  h1::after {
+    content: "_";
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
   p.sub {
     color: var(--muted);
-    font-size: 13px;
-    margin: 0 0 24px;
+    font-size: 12px;
+    line-height: 1.6;
+    margin: 10px 2px 20px;
+    border-left: 3px solid var(--muted);
+    padding-left: 10px;
   }
   .field {
     background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 12px;
+    border: 2px solid var(--border);
+    padding: 14px;
+    margin-bottom: 14px;
+    position: relative;
+  }
+  .field::before {
+    content: "▶";
+    position: absolute;
+    top: 14px;
+    left: -2px;
+    transform: translateX(-100%);
+    color: var(--accent);
+    display: none;
   }
   .field label {
     display: block;
     font-size: 13px;
-    font-weight: 600;
-    margin-bottom: 8px;
+    font-weight: 700;
+    margin-bottom: 10px;
+    text-transform: uppercase;
   }
+  .field label::before { content: "[ "; color: var(--muted); }
+  .field label::after { content: " ]"; color: var(--muted); }
   input[type="file"] {
     color: var(--text);
-    font-size: 13px;
+    font-family: inherit;
+    font-size: 12px;
     width: 100%;
   }
+  input[type="file"]::file-selector-button {
+    font-family: inherit;
+    background: var(--border);
+    color: #000;
+    border: none;
+    padding: 6px 12px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-right: 10px;
+    text-transform: uppercase;
+  }
   .filename {
-    margin-top: 6px;
+    margin-top: 8px;
     font-size: 12px;
     color: var(--muted);
   }
+  .filename::before { content: "> "; }
   button {
     width: 100%;
     padding: 12px;
-    border-radius: 10px;
-    border: none;
-    background: var(--accent);
-    color: white;
+    border-radius: 0;
+    border: 2px solid var(--border);
+    background: #000;
+    color: var(--border);
+    font-family: inherit;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
     cursor: pointer;
     margin-top: 4px;
   }
+  button::before { content: "[ "; }
+  button::after { content: " ]"; }
+  button:not(:disabled):hover {
+    background: var(--border);
+    color: #000;
+  }
   button:disabled {
-    background: #33384A;
-    color: var(--muted);
+    border-color: #2A2A2A;
+    color: #2A2A2A;
     cursor: not-allowed;
   }
   #result {
     margin-top: 20px;
   }
   .msg {
-    border-radius: 10px;
+    border: 2px solid;
     padding: 12px 14px;
-    font-size: 13px;
+    font-size: 12px;
     margin-bottom: 12px;
   }
-  .msg.err { background: rgba(239,68,68,0.12); color: #FCA5A5; border: 1px solid rgba(239,68,68,0.3); }
-  .msg.ok { background: rgba(34,197,94,0.12); color: #86EFAC; border: 1px solid rgba(34,197,94,0.3); }
+  .msg::before { content: "!! "; }
+  .msg.err { color: var(--err); border-color: var(--err); background: rgba(255,59,59,0.08); }
+  .msg.ok { color: var(--ok); border-color: var(--ok); background: rgba(0,255,102,0.08); }
   .rows {
     background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
+    border: 2px solid var(--border);
   }
   .row {
     display: flex;
     justify-content: space-between;
     gap: 12px;
-    padding: 10px 14px;
-    font-size: 13px;
-    border-bottom: 1px solid var(--border);
+    padding: 8px 14px;
+    font-size: 12px;
+    border-bottom: 1px dashed var(--border);
   }
   .row:last-child { border-bottom: none; }
   .row .page { color: var(--muted); flex-shrink: 0; }
+  .row.applied::before { content: "[OK] "; color: var(--ok); }
+  .row.failed::before { content: "[XX] "; color: var(--err); }
   .row.applied .page { color: var(--ok); }
   .row.failed .page { color: var(--err); }
   a.download {
     display: block;
     text-align: center;
     margin-top: 16px;
-    background: var(--ok);
-    color: #06210F;
+    background: #000;
+    color: var(--accent);
+    border: 2px solid var(--accent);
     font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
     padding: 12px;
-    border-radius: 10px;
     text-decoration: none;
-    font-size: 14px;
+    font-size: 13px;
   }
+  a.download:hover {
+    background: var(--accent);
+    color: #000;
+  }
+  a.download::before { content: "[ ↓ "; }
+  a.download::after { content: " ]"; }
   .prompt-section {
     margin-bottom: 24px;
   }
   .prompt-section h2 {
-    font-size: 14px;
+    font-size: 13px;
     margin: 0 0 10px;
     color: var(--muted);
-    font-weight: 600;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
+  .prompt-section h2::before { content: "=== "; }
+  .prompt-section h2::after { content: " ==="; }
   .prompt-card {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
     background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px 14px;
-    margin-bottom: 8px;
-    font-size: 13px;
+    border: 2px solid var(--border);
+    border-top: none;
+    padding: 10px 14px;
+    font-size: 12px;
   }
+  .prompt-card:first-of-type { border-top: 2px solid var(--border); }
+  .prompt-card::before { content: "* "; color: var(--accent); }
   .prompt-card button {
     width: auto;
-    padding: 6px 14px;
-    font-size: 12px;
+    padding: 5px 12px;
+    font-size: 11px;
     margin-top: 0;
     flex-shrink: 0;
+  }
+  footer.bar {
+    border: 3px double var(--border);
+    margin-top: 24px;
+    padding: 8px 14px;
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
   }
 </style>
 </head>
 <body>
 <main>
-  <h1>board1 (web)</h1>
-  <p class="sub">대본 TXT("Np" 페이지 표시)를 PPT 슬라이드 메모에 입력합니다. Windows/Mac 상관없이 브라우저에서 동작하며, 파일은 서버로 전송되지 않고 이 브라우저 안에서만 처리됩니다.</p>
+  <div class="titlebar">
+    <h1>board1 web</h1>
+    <span class="sys">v1.0.0 KOR</span>
+  </div>
+  <p class="sub">대본 TXT("Np" 페이지 표시)를 PPT 슬라이드 메모에 입력합니다.<br/>WINDOWS / MAC 상관없이 브라우저에서 동작하며, 파일은 서버로 전송되지 않고 이 브라우저 안에서만 처리됩니다.</p>
 
   <div class="prompt-section">
     <h2>GPT 프롬프트 (PDF+녹취 → 페이지별 대본 생성용)</h2>
@@ -182,6 +272,8 @@
   <button id="runBtn" disabled>메모 입력 실행</button>
 
   <div id="result"></div>
+
+  <footer class="bar">board1.exe — LOCAL PROCESSING ONLY — NO UPLOAD</footer>
 </main>
 
 <script type="module">
