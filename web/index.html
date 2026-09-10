@@ -64,24 +64,9 @@
     color: var(--accent);
     font-weight: 700;
   }
-  .guide p {
-    margin: 4px 0 0;
-    color: var(--muted);
-  }
   .guide .hi {
     color: var(--accent);
     font-weight: 600;
-  }
-  .guide hr {
-    border: none;
-    border-top: 1px solid var(--border);
-    margin: 18px 0;
-  }
-  .guide .note {
-    font-size: 12px;
-    color: var(--muted);
-    line-height: 1.6;
-    margin: 0;
   }
   main {
     width: 100%;
@@ -251,22 +236,13 @@
 <aside class="guide">
   <h2>사용법</h2>
   <ol>
-    <li>
-      강의안(PPT), 위쪽 <span class="hi">GPT 프롬프트</span>(복사 버튼), 녹취록 TXT 파일 3개를 ChatGPT에 일괄 업로드.
-    </li>
-    <li>
-      ChatGPT가 강의안 순서대로 정리해서 만든 <span class="hi">"1p, 2p..." 형식 TXT 파일</span> 다운로드.
-    </li>
-    <li>
-      아래에서 <span class="hi">원본 강의안(PPT)</span>과 방금 받은 <span class="hi">정리된 TXT 파일</span> 각각 선택.
-      <p>두 파일 선택 시 실행 버튼 활성화.</p>
-    </li>
-    <li>
-      <span class="hi">"메모 입력 실행"</span> 버튼 클릭 → 녹취록이 슬라이드 메모(노트)에 삽입된 새 PPT 파일 다운로드.
-    </li>
+    <li>오른쪽 <span class="hi">GPT 프롬프트</span> 복사(복사 버튼).</li>
+    <li>강의안(PPTX), 녹취록(TXT)을 ChatGPT 채팅창에 복사된 프롬프트(1)와 함께 일괄 업로드.</li>
+    <li>결과물(TXT) 파일 다운로드.</li>
+    <li>우측 아래에서 원본 강의안(PPTX)과 방금 받은 정리된 TXT 파일 각각 선택.</li>
+    <li>하단 <span class="hi">"메모 입력 실행"</span> 클릭.</li>
+    <li>파일 다운로드.</li>
   </ol>
-  <hr/>
-  <p class="note">원본 PPT는 그대로 유지, 결과물은 별도 파일로 다운로드. 모든 처리는 브라우저 내부에서만 진행, 외부 전송 없음.</p>
 </aside>
 <main>
   <h1>board1 (web)</h1>
