@@ -107,6 +107,7 @@ fn sanitize_extended_timestamp_fields(bytes: &mut [u8]) {
 pub fn import_notes_from_bytes(
     mut pptx_bytes: Vec<u8>,
     script_text: &str,
+    keep_original: bool,
 ) -> Result<(ImportSummary, Vec<u8>), String> {
     let blocks = parse_script(script_text);
     if blocks.is_empty() {
@@ -145,6 +146,7 @@ pub fn import_notes_from_bytes(
             &mut overrides,
             block.page,
             &block.text,
+            keep_original,
         ) {
             Ok(()) => applied.push(PageResult {
                 page: block.page,
@@ -577,6 +579,91 @@ fn reader_slice(ev: &Event) -> Result<Vec<u8>, String> {
     Ok(w.into_inner().into_inner())
 }
 
+/// 노트 텍스트 상자(is_body_shape)의 기존 텍스트를 문단(a:p) 단위 줄바꿈으로 읽어온다.
+/// set_notes_body_text와 동일한 방식으로 대상 도형을 찾되, 덮어쓰지 않고 텍스트만 추출한다.
+/// (데스크톱판 pptx.rs와 동일 로직)
+fn get_notes_body_text(xml: &[u8]) -> Option<String> {
+    let mut reader = Reader::from_reader(xml);
+    reader.config_mut().trim_text(false);
+    let mut buf = Vec::new();
+
+    let mut depth: i32 = 0;
+    let mut sp_depth: i32 = -1;
+    let mut is_body_shape = false;
+    let mut in_target_txbody = false;
+    let mut in_t = false;
+    let mut found_target = false;
+    let mut lines: Vec<String> = Vec::new();
+    let mut current_line = String::new();
+
+    loop {
+        let ev = reader.read_event_into(&mut buf).ok()?;
+        match &ev {
+            Event::Eof => break,
+            Event::Start(e) => {
+                depth += 1;
+                let name = e.name();
+                if name.as_ref() == b"p:sp" {
+                    sp_depth = depth;
+                    is_body_shape = false;
+                }
+                if name.as_ref() == b"p:txBody" && sp_depth != -1 && is_body_shape && !found_target
+                {
+                    in_target_txbody = true;
+                    found_target = true;
+                }
+                if in_target_txbody && name.as_ref() == b"a:p" {
+                    current_line.clear();
+                }
+                if in_target_txbody && name.as_ref() == b"a:t" {
+                    in_t = true;
+                }
+            }
+            Event::Empty(e) => {
+                let name = e.name();
+                if name.as_ref() == b"p:ph" && sp_depth != -1 {
+                    let ty = get_attr(e, b"type");
+                    let is_non_body = matches!(ty.as_deref(), Some(t) if NON_BODY_PH_TYPES.contains(&t));
+                    if !is_non_body {
+                        is_body_shape = true;
+                    }
+                }
+            }
+            Event::Text(e) => {
+                if in_t {
+                    if let Ok(t) = e.unescape() {
+                        current_line.push_str(&t);
+                    }
+                }
+            }
+            Event::End(e) => {
+                let name = e.name();
+                if name.as_ref() == b"a:t" {
+                    in_t = false;
+                }
+                if in_target_txbody && name.as_ref() == b"a:p" {
+                    lines.push(current_line.clone());
+                }
+                if name.as_ref() == b"p:txBody" && in_target_txbody {
+                    break;
+                }
+                if name.as_ref() == b"p:sp" && sp_depth == depth {
+                    sp_depth = -1;
+                    is_body_shape = false;
+                }
+                depth -= 1;
+            }
+            _ => {}
+        }
+        buf.clear();
+    }
+
+    if !found_target {
+        return None;
+    }
+    Some(lines.join("\n"))
+}
+
 fn apply_note(
     archive: &mut ZipArchive<Cursor<Vec<u8>>>,
     all_names: &[String],
@@ -584,6 +671,7 @@ fn apply_note(
     overrides: &mut HashMap<String, Vec<u8>>,
     page: u32,
     text: &str,
+    keep_original: bool,
 ) -> Result<(), String> {
     let slide_path = slide_path_by_page
         .get(&page)
@@ -611,7 +699,17 @@ fn apply_note(
             .cloned()
             .or_else(|| read_entry(archive, &notes_path))
             .ok_or_else(|| format!("{notes_path} 를 찾을 수 없음"))?;
-        let updated_xml = set_notes_body_text(&existing_xml, text)?;
+        let final_text = if keep_original {
+            match get_notes_body_text(&existing_xml) {
+                Some(existing) if !existing.trim().is_empty() => {
+                    format!("{text}\n\n--아래 교수님원문--\n\n{existing}")
+                }
+                _ => text.to_string(),
+            }
+        } else {
+            text.to_string()
+        };
+        let updated_xml = set_notes_body_text(&existing_xml, &final_text)?;
         overrides.insert(notes_path, updated_xml);
         return Ok(());
     }
@@ -733,9 +831,13 @@ impl ImportResult {
 }
 
 #[wasm_bindgen(js_name = importNotes)]
-pub fn import_notes(pptx_bytes: Vec<u8>, script_text: String) -> Result<ImportResult, JsValue> {
-    let (summary, bytes) =
-        import_notes_from_bytes(pptx_bytes, &script_text).map_err(|e| JsValue::from_str(&e))?;
+pub fn import_notes(
+    pptx_bytes: Vec<u8>,
+    script_text: String,
+    keep_original: bool,
+) -> Result<ImportResult, JsValue> {
+    let (summary, bytes) = import_notes_from_bytes(pptx_bytes, &script_text, keep_original)
+        .map_err(|e| JsValue::from_str(&e))?;
     let summary_json = serde_json::to_string(&summary).map_err(|e| JsValue::from_str(&e.to_string()))?;
     Ok(ImportResult { bytes, summary_json })
 }

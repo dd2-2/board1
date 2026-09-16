@@ -120,6 +120,77 @@
     font-size: 12px;
     color: var(--muted);
   }
+  .pair-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .pair-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .pair-name {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .pair-name.empty {
+    color: var(--muted);
+  }
+  .pair-arrow {
+    color: var(--muted);
+    flex-shrink: 0;
+    font-size: 12px;
+  }
+  select.pair-select {
+    flex: 1;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-family: inherit;
+  }
+  select.pair-select.empty {
+    color: var(--err);
+    border-color: var(--err);
+  }
+  .pair-remove {
+    width: auto;
+    flex-shrink: 0;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    margin-top: 0;
+  }
+  .run-row {
+    display: flex;
+    gap: 8px;
+  }
+  .run-row button {
+    flex: 1;
+    width: auto;
+  }
+  button.secondary {
+    background: var(--panel-hover);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  button.secondary:not(:disabled):hover {
+    background: #262626;
+  }
   button {
     width: 100%;
     padding: 14px;
@@ -171,6 +242,19 @@
   .row .page { color: var(--muted); flex-shrink: 0; }
   .row.applied .page { color: var(--accent); }
   .row.failed .page { color: var(--err); }
+  .batch-result {
+    margin-bottom: 16px;
+  }
+  .batch-result h3 {
+    font-size: 13px;
+    margin: 0 0 8px;
+    font-weight: 700;
+  }
+  .batch-result .saved {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 8px;
+  }
   a.download {
     display: block;
     text-align: center;
@@ -226,9 +310,9 @@
     <li>오른쪽 <span class="hi">GPT 프롬프트</span> 복사(복사 버튼).</li>
     <li>강의안(PPTX), 녹취록(TXT)을 ChatGPT 채팅창에 복사된 프롬프트(1)와 함께 일괄 업로드.</li>
     <li>결과물(TXT) 파일 다운로드.</li>
-    <li>우측 아래에서 원본 강의안(PPTX)과 방금 받은 정리된 TXT 파일 각각 선택.</li>
-    <li>하단 <span class="hi">"메모 입력 실행"</span> 클릭.</li>
-    <li>파일 다운로드.</li>
+    <li>우측 아래에서 원본 강의안(PPTX)과 방금 받은 정리된 TXT 파일 선택 (여러 건도 한번에 가능, 파일명 숫자로 자동 매칭).</li>
+    <li>하단 <span class="hi">"메모 입력 실행"</span> 클릭 (기존 메모를 보존하려면 <span class="hi">"교수님원문"</span>).</li>
+    <li>파일(여러 건이면 zip) 다운로드.</li>
   </ol>
 </aside>
 <main>
@@ -247,18 +331,29 @@
   </div>
 
   <div class="field">
-    <label>PPTX 파일</label>
-    <input type="file" id="pptxInput" accept=".pptx" />
-    <div class="filename" id="pptxName">선택된 파일 없음</div>
+    <label>PPTX 파일 (여러 건 선택 가능)</label>
+    <input type="file" id="pptxInput" accept=".pptx" multiple />
   </div>
 
   <div class="field">
-    <label>정리된 TXT파일</label>
-    <input type="file" id="txtInput" accept=".txt" />
-    <div class="filename" id="txtName">선택된 파일 없음</div>
+    <label>정리된 TXT 파일 (여러 건 선택 가능)</label>
+    <input type="file" id="txtInput" accept=".txt" multiple />
   </div>
 
-  <button id="runBtn" disabled>메모 입력 실행</button>
+  <div class="field" id="pairsField" style="display:none;">
+    <label>파일명 숫자로 자동 매칭됨 — 필요하면 직접 수정</label>
+    <div class="pair-list" id="pairList"></div>
+  </div>
+
+  <div class="field" id="unmatchedField" style="display:none;">
+    <label>매칭 안 된 TXT — 위 목록에서 PPTX에 직접 지정하세요</label>
+    <div class="pair-list" id="unmatchedList"></div>
+  </div>
+
+  <div class="run-row">
+    <button id="runBtn" disabled>메모 입력 실행</button>
+    <button id="runKeepBtn" class="secondary" disabled title="기존 메모에 이미 있는 교수님원문은 지우지 않고 새 내용 아래로 밀어서 보존합니다.">교수님원문</button>
+  </div>
 
   <div id="result"></div>
 </main>
@@ -269,13 +364,16 @@
 
   const pptxInput = document.getElementById("pptxInput");
   const txtInput = document.getElementById("txtInput");
-  const pptxName = document.getElementById("pptxName");
-  const txtName = document.getElementById("txtName");
+  const pairsField = document.getElementById("pairsField");
+  const pairList = document.getElementById("pairList");
+  const unmatchedField = document.getElementById("unmatchedField");
+  const unmatchedList = document.getElementById("unmatchedList");
   const runBtn = document.getElementById("runBtn");
+  const runKeepBtn = document.getElementById("runKeepBtn");
   const result = document.getElementById("result");
 
   let wasmReady = false;
-  init().then(() => { wasmReady = true; updateButton(); });
+  init().then(() => { wasmReady = true; updateButtons(); });
 
   const PROMPT_FILES = {
     with: "./assets/prompts/with-original.txt",
@@ -297,18 +395,172 @@
     });
   });
 
-  function updateButton() {
-    runBtn.disabled = !(wasmReady && pptxInput.files[0] && txtInput.files[0]);
+  // ---- 여러 pptx/txt 매칭 (파일명 속 숫자 기준, 데스크톱판과 동일 방식) ----
+  let pairs = []; // { pptxFile, txtFile: File|null }
+  let unmatchedTxt = []; // File[]
+
+  function leadingNumber(name) {
+    const m = name.match(/\d+/);
+    return m ? parseInt(m[0], 10) : null;
+  }
+
+  function addFiles(newPptxFiles, newTxtFiles) {
+    const existingPptx = new Set(pairs.map((p) => p.pptxFile));
+    for (const f of newPptxFiles) {
+      if (existingPptx.has(f)) continue;
+      existingPptx.add(f);
+      let matched = null;
+      const n = leadingNumber(f.name);
+      if (n !== null) {
+        const idx = unmatchedTxt.findIndex((t) => leadingNumber(t.name) === n);
+        if (idx !== -1) {
+          matched = unmatchedTxt[idx];
+          unmatchedTxt.splice(idx, 1);
+        }
+      }
+      pairs.push({ pptxFile: f, txtFile: matched });
+    }
+
+    const usedTxt = new Set(pairs.map((p) => p.txtFile).filter(Boolean));
+    for (const t of newTxtFiles) {
+      if (usedTxt.has(t) || unmatchedTxt.includes(t)) continue;
+      const n = leadingNumber(t.name);
+      const idx = n === null ? -1 : pairs.findIndex((p) => !p.txtFile && leadingNumber(p.pptxFile.name) === n);
+      if (idx !== -1) {
+        pairs[idx].txtFile = t;
+        usedTxt.add(t);
+      } else {
+        unmatchedTxt.push(t);
+      }
+    }
+
+    result.innerHTML = "";
+    render();
+  }
+
+  function removePair(pptxFile) {
+    const target = pairs.find((p) => p.pptxFile === pptxFile);
+    pairs = pairs.filter((p) => p.pptxFile !== pptxFile);
+    if (target?.txtFile) unmatchedTxt.push(target.txtFile);
+    render();
+  }
+
+  function removeUnmatchedTxt(txtFile) {
+    unmatchedTxt = unmatchedTxt.filter((t) => t !== txtFile);
+    render();
+  }
+
+  function reassignTxt(pptxFile, txtFile) {
+    const pair = pairs.find((p) => p.pptxFile === pptxFile);
+    if (pair.txtFile) unmatchedTxt.push(pair.txtFile);
+    unmatchedTxt = unmatchedTxt.filter((t) => t !== txtFile);
+    pair.txtFile = txtFile ?? null;
+    render();
+  }
+
+  function render() {
+    pairsField.style.display = pairs.length > 0 ? "" : "none";
+    pairList.innerHTML = "";
+    for (const pair of pairs) {
+      const row = document.createElement("div");
+      row.className = "pair-row";
+
+      const name = document.createElement("div");
+      name.className = "pair-name";
+      name.title = pair.pptxFile.name;
+      name.textContent = pair.pptxFile.name;
+      row.appendChild(name);
+
+      const arrow = document.createElement("span");
+      arrow.className = "pair-arrow";
+      arrow.textContent = "→";
+      row.appendChild(arrow);
+
+      const select = document.createElement("select");
+      select.className = "pair-select" + (pair.txtFile ? "" : " empty");
+      const noneOpt = document.createElement("option");
+      noneOpt.value = "";
+      noneOpt.textContent = "(매칭된 TXT 없음)";
+      select.appendChild(noneOpt);
+      if (pair.txtFile) {
+        const opt = document.createElement("option");
+        opt.value = "current";
+        opt.textContent = pair.txtFile.name;
+        opt.selected = true;
+        select.appendChild(opt);
+      }
+      unmatchedTxt.forEach((t, i) => {
+        const opt = document.createElement("option");
+        opt.value = "u" + i;
+        opt.textContent = t.name;
+        select.appendChild(opt);
+      });
+      select.addEventListener("change", () => {
+        if (select.value === "" ) reassignTxt(pair.pptxFile, null);
+        else if (select.value === "current") return;
+        else reassignTxt(pair.pptxFile, unmatchedTxt[parseInt(select.value.slice(1), 10)]);
+      });
+      row.appendChild(select);
+
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "pair-remove";
+      removeBtn.textContent = "✕";
+      removeBtn.title = "목록에서 제거";
+      removeBtn.addEventListener("click", () => removePair(pair.pptxFile));
+      row.appendChild(removeBtn);
+
+      pairList.appendChild(row);
+    }
+
+    unmatchedField.style.display = unmatchedTxt.length > 0 ? "" : "none";
+    unmatchedList.innerHTML = "";
+    for (const t of unmatchedTxt) {
+      const row = document.createElement("div");
+      row.className = "pair-row";
+
+      const name = document.createElement("div");
+      name.className = "pair-name empty";
+      name.title = t.name;
+      name.textContent = t.name;
+      row.appendChild(name);
+
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "pair-remove";
+      removeBtn.textContent = "✕";
+      removeBtn.title = "목록에서 제거";
+      removeBtn.addEventListener("click", () => removeUnmatchedTxt(t));
+      row.appendChild(removeBtn);
+
+      unmatchedList.appendChild(row);
+    }
+
+    updateButtons();
+  }
+
+  function runnablePairs() {
+    return pairs.filter((p) => p.txtFile);
+  }
+
+  function updateButtons() {
+    const n = runnablePairs().length;
+    const disabled = !(wasmReady && n > 0);
+    runBtn.disabled = disabled;
+    runKeepBtn.disabled = disabled;
+    runBtn.textContent = n > 1 ? `메모 입력 실행 (${n}건)` : "메모 입력 실행";
   }
 
   pptxInput.addEventListener("change", () => {
-    pptxName.textContent = pptxInput.files[0]?.name ?? "선택된 파일 없음";
-    updateButton();
+    addFiles(Array.from(pptxInput.files), []);
+    pptxInput.value = "";
   });
   txtInput.addEventListener("change", () => {
-    txtName.textContent = txtInput.files[0]?.name ?? "선택된 파일 없음";
-    updateButton();
+    addFiles([], Array.from(txtInput.files));
+    txtInput.value = "";
   });
+
+  function outputNameFor(originalName) {
+    return "녹취추가_" + originalName;
+  }
 
   function readAsArrayBuffer(file) {
     return new Promise((resolve, reject) => {
@@ -328,60 +580,207 @@
     });
   }
 
-  runBtn.addEventListener("click", async () => {
+  async function runBatch(keepOriginal) {
+    const jobs = runnablePairs();
+    if (jobs.length === 0) return;
+
     result.innerHTML = "";
     runBtn.disabled = true;
-    runBtn.textContent = "처리 중...";
-    try {
-      const pptxFile = pptxInput.files[0];
-      const txtFile = txtInput.files[0];
-      const pptxBytes = new Uint8Array(await readAsArrayBuffer(pptxFile));
-      const scriptText = await readAsText(txtFile);
+    runKeepBtn.disabled = true;
+    const runningBtn = keepOriginal ? runKeepBtn : runBtn;
+    const originalLabel = runningBtn.textContent;
+    runningBtn.textContent = "처리 중...";
 
-      const res = importNotes(pptxBytes, scriptText);
-      const summary = JSON.parse(res.summaryJson);
-
-      const rows = document.createElement("div");
-      rows.className = "rows";
-      for (const item of summary.applied) {
-        const row = document.createElement("div");
-        row.className = "row applied";
-        row.innerHTML = `<span>${escapeHtml(item.message)}</span><span class="page">p.${item.page}</span>`;
-        rows.appendChild(row);
+    const results = [];
+    for (const job of jobs) {
+      const outName = outputNameFor(job.pptxFile.name);
+      try {
+        const pptxBytes = new Uint8Array(await readAsArrayBuffer(job.pptxFile));
+        const scriptText = await readAsText(job.txtFile);
+        const res = importNotes(pptxBytes, scriptText, keepOriginal);
+        const summary = JSON.parse(res.summaryJson);
+        results.push({ sourceName: job.pptxFile.name, outName, summary, bytes: res.bytes });
+      } catch (e) {
+        results.push({
+          sourceName: job.pptxFile.name,
+          outName,
+          error: typeof e === "string" ? e : (e?.message ?? String(e)),
+        });
       }
-      for (const item of summary.failed) {
-        const row = document.createElement("div");
-        row.className = "row failed";
-        row.innerHTML = `<span>${escapeHtml(item.message)}</span><span class="page">p.${item.page}</span>`;
-        rows.appendChild(row);
-      }
-      result.appendChild(rows);
+      renderResults(results);
+    }
 
-      const blob = new Blob([res.bytes], {
+    runBtn.disabled = false;
+    runKeepBtn.disabled = false;
+    runningBtn.textContent = originalLabel;
+    updateButtons();
+  }
+
+  function renderResults(results) {
+    result.innerHTML = "";
+    for (const r of results) {
+      const block = document.createElement("div");
+      block.className = "batch-result";
+
+      const title = document.createElement("h3");
+      title.textContent = r.sourceName;
+      block.appendChild(title);
+
+      if (r.error) {
+        const msg = document.createElement("div");
+        msg.className = "msg err";
+        msg.textContent = r.error;
+        block.appendChild(msg);
+      } else {
+        const rows = document.createElement("div");
+        rows.className = "rows";
+        for (const item of r.summary.applied) {
+          const row = document.createElement("div");
+          row.className = "row applied";
+          row.innerHTML = `<span>${escapeHtml(item.message)}</span><span class="page">p.${item.page}</span>`;
+          rows.appendChild(row);
+        }
+        for (const item of r.summary.failed) {
+          const row = document.createElement("div");
+          row.className = "row failed";
+          row.innerHTML = `<span>${escapeHtml(item.message)}</span><span class="page">p.${item.page}</span>`;
+          rows.appendChild(row);
+        }
+        block.appendChild(rows);
+
+        const saved = document.createElement("div");
+        saved.className = "saved";
+        saved.textContent = `→ 저장됨: ${r.outName}`;
+        block.appendChild(saved);
+      }
+
+      result.appendChild(block);
+    }
+
+    const succeeded = results.filter((r) => r.bytes);
+    if (succeeded.length === 0) return;
+
+    if (succeeded.length === 1) {
+      const only = succeeded[0];
+      const blob = new Blob([only.bytes], {
         type: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       });
       const url = URL.createObjectURL(blob);
-      const outName = pptxFile.name.replace(/\.pptx$/i, "") + "_notes.pptx";
       const a = document.createElement("a");
       a.className = "download";
       a.href = url;
-      a.download = outName;
-      a.textContent = `결과 다운로드 (${outName})`;
+      a.download = only.outName;
+      a.textContent = `결과 다운로드 (${only.outName})`;
       result.appendChild(a);
-    } catch (e) {
-      const msg = document.createElement("div");
-      msg.className = "msg err";
-      msg.textContent = typeof e === "string" ? e : (e?.message ?? String(e));
-      result.appendChild(msg);
-    } finally {
-      runBtn.disabled = false;
-      runBtn.textContent = "메모 입력 실행";
-      updateButton();
+    } else {
+      const zipBytes = buildZip(succeeded.map((r) => ({ name: r.outName, bytes: r.bytes })));
+      const blob = new Blob([zipBytes], { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.className = "download";
+      a.href = url;
+      a.download = "board1_결과.zip";
+      a.textContent = `결과 전체 다운로드 (zip, ${succeeded.length}건)`;
+      result.appendChild(a);
     }
-  });
+  }
+
+  runBtn.addEventListener("click", () => runBatch(false));
+  runKeepBtn.addEventListener("click", () => runBatch(true));
 
   function escapeHtml(s) {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  // ---- 결과가 여러 건일 때 묶어서 내려받을 최소 ZIP(STORE, 무압축) 작성기 ----
+  const CRC_TABLE = (() => {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) {
+        c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+      }
+      table[n] = c >>> 0;
+    }
+    return table;
+  })();
+
+  function crc32(bytes) {
+    let crc = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) {
+      crc = CRC_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  function buildZip(entries) {
+    const chunks = [];
+    const centralChunks = [];
+    let offset = 0;
+
+    for (const entry of entries) {
+      const nameBytes = new TextEncoder().encode(entry.name);
+      const data = entry.bytes;
+      const crc = crc32(data);
+      const size = data.length;
+
+      const local = new DataView(new ArrayBuffer(30));
+      local.setUint32(0, 0x04034b50, true);
+      local.setUint16(4, 20, true);
+      local.setUint16(6, 0x0800, true);
+      local.setUint16(8, 0, true);
+      local.setUint16(10, 0, true);
+      local.setUint16(12, 0x21, true);
+      local.setUint32(14, crc, true);
+      local.setUint32(18, size, true);
+      local.setUint32(22, size, true);
+      local.setUint16(26, nameBytes.length, true);
+      local.setUint16(28, 0, true);
+      const localBytes = new Uint8Array(local.buffer);
+      chunks.push(localBytes, nameBytes, data);
+
+      const central = new DataView(new ArrayBuffer(46));
+      central.setUint32(0, 0x02014b50, true);
+      central.setUint16(4, 20, true);
+      central.setUint16(6, 20, true);
+      central.setUint16(8, 0x0800, true);
+      central.setUint16(10, 0, true);
+      central.setUint16(12, 0, true);
+      central.setUint16(14, 0x21, true);
+      central.setUint32(16, crc, true);
+      central.setUint32(20, size, true);
+      central.setUint32(24, size, true);
+      central.setUint16(28, nameBytes.length, true);
+      central.setUint16(30, 0, true);
+      central.setUint16(32, 0, true);
+      central.setUint16(34, 0, true);
+      central.setUint16(36, 0, true);
+      central.setUint32(38, 0, true);
+      central.setUint32(42, offset, true);
+      centralChunks.push(new Uint8Array(central.buffer), nameBytes);
+
+      offset += localBytes.length + nameBytes.length + data.length;
+    }
+
+    const centralStart = offset;
+    const centralSize = centralChunks.reduce((a, c) => a + c.length, 0);
+
+    const eocd = new DataView(new ArrayBuffer(22));
+    eocd.setUint32(0, 0x06054b50, true);
+    eocd.setUint16(8, entries.length, true);
+    eocd.setUint16(10, entries.length, true);
+    eocd.setUint32(12, centralSize, true);
+    eocd.setUint32(16, centralStart, true);
+
+    const all = [...chunks, ...centralChunks, new Uint8Array(eocd.buffer)];
+    const total = all.reduce((a, c) => a + c.length, 0);
+    const out = new Uint8Array(total);
+    let pos = 0;
+    for (const c of all) {
+      out.set(c, pos);
+      pos += c.length;
+    }
+    return out;
   }
 </script>
 </body>

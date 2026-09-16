@@ -5,8 +5,13 @@ mod pptx;
 use pptx::ImportSummary;
 
 #[tauri::command]
-fn import_notes(pptx_path: String, txt_path: String) -> Result<ImportSummary, String> {
-    pptx::import_notes_from_script(&pptx_path, &txt_path)
+fn import_notes(
+    pptx_path: String,
+    output_path: String,
+    txt_path: String,
+    keep_original: bool,
+) -> Result<ImportSummary, String> {
+    pptx::import_notes_from_script(&pptx_path, &output_path, &txt_path, keep_original)
 }
 
 fn main() {
