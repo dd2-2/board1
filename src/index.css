@@ -66,6 +66,22 @@ body {
   margin: 0;
 }
 
+.tab-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.tab-row h1 {
+  margin-right: 8px;
+}
+
+button.tab.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
 .field {
   display: flex;
   flex-direction: column;

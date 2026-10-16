@@ -841,3 +841,34 @@ pub fn import_notes(
     let summary_json = serde_json::to_string(&summary).map_err(|e| JsValue::from_str(&e.to_string()))?;
     Ok(ImportResult { bytes, summary_json })
 }
+
+// ---- 요약 PPT 생성 (데스크톱과 같은 summary.rs를 그대로 포함) ----
+
+#[path = "../../src-tauri/src/summary.rs"]
+mod summary;
+
+#[wasm_bindgen]
+pub struct SummaryPptResult {
+    bytes: Vec<u8>,
+    slide_count: usize,
+}
+
+#[wasm_bindgen]
+impl SummaryPptResult {
+    #[wasm_bindgen(getter)]
+    pub fn bytes(&self) -> Vec<u8> {
+        self.bytes.clone()
+    }
+
+    #[wasm_bindgen(getter, js_name = slideCount)]
+    pub fn slide_count(&self) -> usize {
+        self.slide_count
+    }
+}
+
+#[wasm_bindgen(js_name = buildSummaryPpt)]
+pub fn build_summary_ppt(mut template_bytes: Vec<u8>, txt: String) -> Result<SummaryPptResult, JsValue> {
+    sanitize_extended_timestamp_fields(&mut template_bytes);
+    let (bytes, slide_count) = summary::build_summary_pptx(template_bytes, &txt).map_err(|e| JsValue::from_str(&e))?;
+    Ok(SummaryPptResult { bytes, slide_count })
+}

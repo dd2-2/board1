@@ -300,13 +300,35 @@
     margin-top: 0;
     flex-shrink: 0;
   }
+  .msg { white-space: pre-wrap; }
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin: -8px 0 24px;
+  }
+  .tabs button {
+    width: auto;
+    margin-top: 0;
+    padding: 8px 18px;
+    font-size: 13px;
+    background: var(--panel-hover);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .tabs button:not(:disabled):hover { background: #262626; }
+  .tabs button.active,
+  .tabs button.active:not(:disabled):hover {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
 </style>
 </head>
 <body>
 <div class="layout">
 <aside class="guide">
   <h2>사용법</h2>
-  <ol>
+  <ol data-panel="notes">
     <li>오른쪽 <span class="hi">GPT 프롬프트</span> 복사(복사 버튼).</li>
     <li>강의안(PPTX), 녹취록(TXT)을 ChatGPT 채팅창에 복사된 프롬프트(1)와 함께 일괄 업로드.</li>
     <li>결과물(TXT) 파일 다운로드.</li>
@@ -314,10 +336,22 @@
     <li>하단 <span class="hi">"메모 입력 실행"</span> 클릭 (기존 메모를 보존하려면 <span class="hi">"교수님원문"</span>).</li>
     <li>파일(여러 건이면 zip) 다운로드.</li>
   </ol>
+  <ol data-panel="summary" style="display:none;">
+    <li>오른쪽 <span class="hi">GPT 프롬프트</span> 복사(복사 버튼).</li>
+    <li>스토리보드, 녹취록을 ChatGPT에 프롬프트와 함께 업로드해 요약 TXT를 받음.</li>
+    <li><span class="hi">디자인 템플릿 PPTX</span>(3페이지, {{차시타이틀}}/{{학습목표}}/{{대주제}} 등 자리표시 포함)와 요약 TXT 선택 (TXT 여러 건 가능).</li>
+    <li><span class="hi">"PPT 만들기"</span> 클릭 → 파일(여러 건이면 zip) 다운로드.</li>
+  </ol>
 </aside>
 <main>
   <h1>PPT + 녹취록메모</h1>
 
+  <div class="tabs">
+    <button data-tab="notes" class="active">PPT 메모 입력</button>
+    <button data-tab="summary">요약 PPT 생성</button>
+  </div>
+
+  <div data-panel="notes">
   <div class="prompt-section">
     <h2>GPT 프롬프트 (PDF+녹취 → 페이지별 대본 생성용)</h2>
     <div class="prompt-card">
@@ -356,11 +390,37 @@
   </div>
 
   <div id="result"></div>
+  </div>
+
+  <div data-panel="summary" style="display:none;">
+    <div class="prompt-section">
+      <h2>GPT 프롬프트 (스토리보드+녹취 → 요약 TXT 생성용)</h2>
+      <div class="prompt-card">
+        <span>강의 요약 TXT 형식</span>
+        <button data-prompt="summary">복사</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>디자인 템플릿 PPTX (3페이지: 표지 / 학습목표·학습내용 / 본문 디자인)</label>
+      <input type="file" id="tplInput" accept=".pptx" />
+    </div>
+
+    <div class="field">
+      <label>요약 TXT (여러 건 선택 가능)</label>
+      <input type="file" id="sumTxtInput" accept=".txt" multiple />
+      <div class="pair-list" id="sumTxtList"></div>
+    </div>
+
+    <button id="sumRunBtn" disabled>PPT 만들기</button>
+
+    <div id="sumResult" style="margin-top:20px;"></div>
+  </div>
 </main>
 </div>
 
 <script type="module">
-  import init, { importNotes } from "./pkg/board1_web.js";
+  import init, { importNotes, buildSummaryPpt } from "./pkg/board1_web.js";
 
   const pptxInput = document.getElementById("pptxInput");
   const txtInput = document.getElementById("txtInput");
@@ -373,11 +433,21 @@
   const result = document.getElementById("result");
 
   let wasmReady = false;
-  init().then(() => { wasmReady = true; updateButtons(); });
+  init().then(() => { wasmReady = true; updateButtons(); updateSummaryButton(); });
+
+  document.querySelectorAll("[data-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("active", b === btn));
+      document.querySelectorAll("[data-panel]").forEach((el) => {
+        el.style.display = el.dataset.panel === btn.dataset.tab ? "" : "none";
+      });
+    });
+  });
 
   const PROMPT_FILES = {
     with: "./assets/prompts/with-original.txt",
     without: "./assets/prompts/without-original.txt",
+    summary: "./assets/prompts/summary.txt",
   };
   document.querySelectorAll("[data-prompt]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -684,6 +754,105 @@
       result.appendChild(a);
     }
   }
+
+  // ---- 요약 PPT 생성: 템플릿 1개 + 요약 TXT 여러 개 → TXT마다 완성본 PPTX ----
+  const tplInput = document.getElementById("tplInput");
+  const sumTxtInput = document.getElementById("sumTxtInput");
+  const sumTxtList = document.getElementById("sumTxtList");
+  const sumRunBtn = document.getElementById("sumRunBtn");
+  const sumResult = document.getElementById("sumResult");
+  let sumTxtFiles = [];
+
+  function renderSumTxt() {
+    sumTxtList.innerHTML = "";
+    for (const f of sumTxtFiles) {
+      const row = document.createElement("div");
+      row.className = "pair-row";
+      const name = document.createElement("div");
+      name.className = "pair-name";
+      name.title = f.name;
+      name.textContent = f.name;
+      row.appendChild(name);
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "pair-remove";
+      removeBtn.textContent = "✕";
+      removeBtn.title = "목록에서 제거";
+      removeBtn.addEventListener("click", () => {
+        sumTxtFiles = sumTxtFiles.filter((t) => t !== f);
+        renderSumTxt();
+      });
+      row.appendChild(removeBtn);
+      sumTxtList.appendChild(row);
+    }
+    updateSummaryButton();
+  }
+
+  function updateSummaryButton() {
+    const n = sumTxtFiles.length;
+    sumRunBtn.disabled = !(wasmReady && tplInput.files.length > 0 && n > 0);
+    sumRunBtn.textContent = n > 1 ? `PPT 만들기 (${n}건)` : "PPT 만들기";
+  }
+
+  tplInput.addEventListener("change", () => { sumResult.innerHTML = ""; updateSummaryButton(); });
+  sumTxtInput.addEventListener("change", () => {
+    for (const f of sumTxtInput.files) {
+      if (!sumTxtFiles.some((t) => t.name === f.name && t.size === f.size)) sumTxtFiles.push(f);
+    }
+    sumTxtInput.value = "";
+    sumResult.innerHTML = "";
+    renderSumTxt();
+  });
+
+  sumRunBtn.addEventListener("click", async () => {
+    const tpl = tplInput.files[0];
+    if (!tpl || sumTxtFiles.length === 0) return;
+    sumResult.innerHTML = "";
+    sumRunBtn.disabled = true;
+    const originalLabel = sumRunBtn.textContent;
+    sumRunBtn.textContent = "생성 중...";
+
+    const tplBytes = new Uint8Array(await readAsArrayBuffer(tpl));
+    const results = [];
+    for (const f of sumTxtFiles) {
+      const outName = "요약완성_" + f.name.replace(/\.txt$/i, "") + ".pptx";
+      try {
+        const res = buildSummaryPpt(tplBytes.slice(), await readAsText(f));
+        results.push({ sourceName: f.name, outName, bytes: res.bytes, slideCount: res.slideCount });
+      } catch (e) {
+        results.push({ sourceName: f.name, outName, error: typeof e === "string" ? e : (e?.message ?? String(e)) });
+      }
+    }
+
+    for (const r of results) {
+      const block = document.createElement("div");
+      block.className = "batch-result";
+      const title = document.createElement("h3");
+      title.textContent = r.sourceName;
+      block.appendChild(title);
+      const msg = document.createElement("div");
+      msg.className = r.error ? "msg err" : "msg ok";
+      msg.textContent = r.error ?? `${r.outName} 생성 완료 (총 ${r.slideCount}페이지)`;
+      block.appendChild(msg);
+      sumResult.appendChild(block);
+    }
+
+    const succeeded = results.filter((r) => r.bytes);
+    if (succeeded.length > 0) {
+      const single = succeeded.length === 1;
+      const blob = single
+        ? new Blob([succeeded[0].bytes], { type: "application/vnd.openxmlformats-officedocument.presentationml.presentation" })
+        : new Blob([buildZip(succeeded.map((r) => ({ name: r.outName, bytes: r.bytes })))], { type: "application/zip" });
+      const a = document.createElement("a");
+      a.className = "download";
+      a.href = URL.createObjectURL(blob);
+      a.download = single ? succeeded[0].outName : "요약완성_결과.zip";
+      a.textContent = single ? `결과 다운로드 (${succeeded[0].outName})` : `결과 전체 다운로드 (zip, ${succeeded.length}건)`;
+      sumResult.appendChild(a);
+    }
+
+    sumRunBtn.textContent = originalLabel;
+    updateSummaryButton();
+  });
 
   runBtn.addEventListener("click", () => runBatch(false));
   runKeepBtn.addEventListener("click", () => runBatch(true));

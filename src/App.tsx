@@ -3,6 +3,7 @@ import { open } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import PromptTemplates from './PromptTemplates'
+import SummaryTab from './SummaryTab'
 
 interface PageResult {
   page: number
@@ -92,7 +93,7 @@ interface Batch {
   unmatchedTxt: string[]
 }
 
-export default function App() {
+function NotesTab() {
   const [batch, setBatch] = useState<Batch>({ pairs: [], unmatchedTxt: [] })
   const { pairs, unmatchedTxt } = batch
   const [running, setRunning] = useState(false)
@@ -210,11 +211,7 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <div>
-        <h1>board1 — PPT 메모 자동 입력</h1>
-      </div>
-
+    <>
       <PromptTemplates />
 
       <div className="field">
@@ -340,6 +337,26 @@ export default function App() {
       <div className={`drop-zone ${dragActive ? 'drag-active' : ''}`}>
         pptx / txt 파일을 여기로 드래그하면 자동으로 선택됩니다. (여러 건 동시에 가능)
       </div>
+    </>
+  )
+}
+
+type Tab = 'notes' | 'summary'
+
+export default function App() {
+  const [tab, setTab] = useState<Tab>('notes')
+  return (
+    <div className="app">
+      <div className="tab-row">
+        <h1>board1</h1>
+        <button className={`tab ${tab === 'notes' ? 'active' : ''}`} onClick={() => setTab('notes')}>
+          PPT 메모 입력
+        </button>
+        <button className={`tab ${tab === 'summary' ? 'active' : ''}`} onClick={() => setTab('summary')}>
+          요약 PPT 생성
+        </button>
+      </div>
+      {tab === 'notes' ? <NotesTab /> : <SummaryTab />}
     </div>
   )
 }

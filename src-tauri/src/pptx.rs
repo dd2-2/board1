@@ -33,7 +33,7 @@ struct NoteBlock {
 /// 낸다(zip crate 자체 이슈, 실제로는 EOCD도 CDFH도 다 정상 위치에 있음). 파싱 전에
 /// flags 바이트를 데이터 길이와 일치하도록 미리 고쳐서 우회한다. 원본 파일(.bak)은
 /// 이 함수 호출 전에 이미 저장되므로 디스크상의 원본은 그대로 보존됨.
-fn sanitize_extended_timestamp_fields(bytes: &mut [u8]) {
+pub(crate) fn sanitize_extended_timestamp_fields(bytes: &mut [u8]) {
     let len = bytes.len();
     if len < 22 {
         return;
