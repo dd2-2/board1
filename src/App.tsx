@@ -346,17 +346,40 @@ type Tab = 'notes' | 'summary'
 export default function App() {
   const [tab, setTab] = useState<Tab>('notes')
   return (
-    <div className="app">
-      <div className="tab-row">
-        <h1>board1</h1>
-        <button className={`tab ${tab === 'notes' ? 'active' : ''}`} onClick={() => setTab('notes')}>
-          PPT 메모 입력
-        </button>
-        <button className={`tab ${tab === 'summary' ? 'active' : ''}`} onClick={() => setTab('summary')}>
-          요약 PPT 생성
-        </button>
-      </div>
-      {tab === 'notes' ? <NotesTab /> : <SummaryTab />}
+    <div className="layout">
+      <aside className="guide">
+        <h2>사용법</h2>
+        {tab === 'notes' ? (
+          <ol>
+            <li>오른쪽 <span className="hi">GPT 프롬프트</span> 복사(복사 버튼).</li>
+            <li>강의안(PPTX), 녹취록(TXT)을 ChatGPT 채팅창에 복사된 프롬프트(1)와 함께 일괄 업로드.</li>
+            <li>결과물(TXT) 파일 다운로드.</li>
+            <li>오른쪽에서 원본 강의안(PPTX)과 방금 받은 정리된 TXT 파일 선택 (여러 건도 한번에 가능, 파일명 숫자로 자동 매칭).</li>
+            <li>하단 <span className="hi">"메모 입력 실행"</span> 클릭 (기존 메모를 보존하려면 <span className="hi">"교수님원문"</span>).</li>
+            <li>원본 PPTX와 같은 폴더에 <span className="hi">녹취추가_원본이름.pptx</span>로 저장됨.</li>
+          </ol>
+        ) : (
+          <ol>
+            <li>오른쪽 <span className="hi">GPT 프롬프트</span> 복사(복사 버튼).</li>
+            <li>스토리보드, 녹취록을 ChatGPT에 프롬프트와 함께 업로드해 요약 TXT를 받음.</li>
+            <li><span className="hi">디자인 템플릿 PPTX</span>(3페이지, {'{{차시타이틀}}/{{학습목표}}/{{대주제}}'} 등 자리표시 포함)와 요약 TXT 선택 (TXT 여러 건 가능).</li>
+            <li><span className="hi">"PPT 만들기"</span> 클릭.</li>
+            <li>TXT와 같은 폴더에 <span className="hi">요약완성_TXT이름.pptx</span>로 저장됨.</li>
+          </ol>
+        )}
+      </aside>
+      <main className="app">
+        <h1>PPT + 녹취록메모</h1>
+        <div className="tabs">
+          <button className={tab === 'notes' ? 'active' : ''} onClick={() => setTab('notes')}>
+            PPT 메모 입력
+          </button>
+          <button className={tab === 'summary' ? 'active' : ''} onClick={() => setTab('summary')}>
+            요약 PPT 생성
+          </button>
+        </div>
+        {tab === 'notes' ? <NotesTab /> : <SummaryTab />}
+      </main>
     </div>
   )
 }

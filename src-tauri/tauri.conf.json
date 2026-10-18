@@ -13,9 +13,9 @@
     "windows": [
       {
         "title": "board1",
-        "width": 760,
-        "height": 640,
-        "minWidth": 600,
+        "width": 1080,
+        "height": 800,
+        "minWidth": 800,
         "minHeight": 480,
         "resizable": true,
         "dragDropEnabled": true
