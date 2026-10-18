@@ -53,5 +53,5 @@ PyInstaller 독립 exe였음.
 - 명세의 "결과 PPT 열기 / 저장 폴더 열기" 버튼은 넣지 않음(opener 플러그인 추가가 필요해서 보류)
 - 탭을 바꾸면 반대쪽 탭에서 선택해 둔 파일 목록은 초기화됨
 
-**배포**: `npm run build:portable`로 `buildboard1.exe` 재빌드, 커밋 2973870 push →
+**배포**: `npm run build:portable`로 `build\board1.exe` 재빌드, 커밋 2973870 push →
 GitHub Actions Pages 배포 성공(2분 10초), 배포 사이트에 새 탭/wasm 함수/프롬프트 파일 반영 확인
