@@ -35,7 +35,6 @@ body {
 .steps {
   /* 남은 높이를 카드가 채움 (아래에 파일 목록/결과가 생기면 그만큼 스크롤) */
   flex: 1 0 auto;
-  min-height: 200px;
   display: flex;
   gap: 12px;
   align-items: stretch;
@@ -119,6 +118,10 @@ button.secondary {
 
 button.secondary:hover:not(:disabled) {
   background: #262626;
+}
+
+.step-body .text-input {
+  flex: none;
 }
 
 .step-hint {
