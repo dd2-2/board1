@@ -556,8 +556,12 @@ button.pair-remove:hover:not(:disabled) {
   gap: 14px;
 }
 
+.step-action {
+  margin-left: auto;
+}
+
 button.reset-btn {
-  padding: 5px 14px;
+  padding: 3px 12px;
   font-size: 12px;
 }
 
@@ -629,4 +633,50 @@ button.reset-btn {
   background: rgba(30, 215, 96, 0.12);
   border-radius: 10px;
   padding: 14px 16px;
+}
+
+/* ---- 완료 알림 토스트 (왼쪽 아래) ---- */
+
+.toasts {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(560px, calc(100vw - 24px));
+  z-index: 100;
+}
+
+.toast {
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #1f2a22;
+  color: var(--accent);
+  border: 1px solid rgba(30, 215, 96, 0.35);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  animation: toast-in 0.2s ease-out;
+}
+
+.toast.warn {
+  background: #2a2618;
+  color: #facc15;
+  border-color: rgba(250, 204, 21, 0.35);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

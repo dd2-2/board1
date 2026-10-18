@@ -5,6 +5,7 @@ import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import summaryPrompt from './assets/prompts/summary.txt?raw'
 import StepCard from './StepCard'
 import { useDropTargets } from './useDropTargets'
+import { useToast } from './toast'
 
 interface SummaryPptResult {
   outputPath: string
@@ -31,7 +32,15 @@ function leadingNumber(path: string): number | null {
 
 /** 디자인 템플릿(3페이지) PPTX 하나 + 요약 TXT 여러 개 → TXT마다 "요약완성_{TXT이름}.pptx"를 TXT 옆에 만든다.
  *  GPT 자동 모드에선 TXT가 원본 녹취록이고, GPT가 요약 TXT(AI요약_)를 먼저 만든 뒤 그걸로 PPT를 만든다. */
-export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
+export default function SummaryTab({
+  ai,
+  apiCard,
+  resetButton,
+}: {
+  ai: boolean
+  apiCard: ReactNode
+  resetButton: ReactNode
+}) {
   const [templatePath, setTemplatePath] = useState<string | null>(null)
   // 저장 폴더 (null이면 TXT 옆)
   const [outputDir, setOutputDir] = useState<string | null>(null)
@@ -41,6 +50,7 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
   const [manualStoryboard, setManualStoryboard] = useState<Record<string, string>>({})
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState('')
+  const notify = useToast()
   const [results, setResults] = useState<RunResult[] | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -122,7 +132,12 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
           txtPath: summaryTxtPath ?? txtPath,
           outputDir,
         })
-        out.push({ txtPath, summaryTxtPath, result })
+        // 완료는 토스트로만 알리고, 실패만 아래 목록에 남김
+        notify(
+          `✓ ${fileName(txtPath)} → ${fileName(result.outputPath)} · ${result.slideCount}p${result.warnings.length > 0 ? ` · 경고 ${result.warnings.length}` : ''}`,
+          result.warnings.length > 0 ? 'warn' : 'ok',
+          [summaryTxtPath && `GPT 요약: ${summaryTxtPath}`, result.outputPath, ...result.warnings].filter(Boolean).join('\n'),
+        )
       } catch (e) {
         out.push({ txtPath, summaryTxtPath, error: String(e) })
       }
@@ -157,7 +172,7 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
             />
           </>
         )}
-        <StepCard num={ai ? 2 : 3} title="파일 선택" desc={
+        <StepCard num={ai ? 2 : 3} title="파일 선택" action={resetButton} desc={
             ai ? (
               '템플릿 + 녹취 (+스토리보드)'
             ) : (

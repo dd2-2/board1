@@ -5,6 +5,7 @@ import PromptTemplates from './PromptTemplates'
 import SummaryTab from './SummaryTab'
 import StepCard from './StepCard'
 import { useDropTargets } from './useDropTargets'
+import { ToastProvider, useToast } from './toast'
 
 interface PageResult {
   page: number
@@ -95,11 +96,12 @@ interface Batch {
   unmatchedTxt: string[]
 }
 
-function NotesTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
+function NotesTab({ ai, apiCard, resetButton }: { ai: boolean; apiCard: ReactNode; resetButton: ReactNode }) {
   const [batch, setBatch] = useState<Batch>({ pairs: [], unmatchedTxt: [] })
   const { pairs, unmatchedTxt } = batch
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState('')
+  const notify = useToast()
   const [error, setError] = useState<string | null>(null)
   const [batchResults, setBatchResults] = useState<BatchResult[] | null>(null)
 
@@ -194,7 +196,15 @@ function NotesTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
           txtPath: scriptPath ?? pair.txtPath,
           keepOriginal,
         })
-        results.push({ pptxPath: pair.pptxPath, outputPath, scriptPath, summary })
+        // 완료는 토스트로만 알리고, 실패만 아래 목록에 남김
+        const failed = summary.failed
+        notify(
+          `✓ ${fileName(pair.pptxPath)} → ${fileName(outputPath)} · ${summary.applied.length}장 입력${failed.length > 0 ? ` · ${failed.length}장 건너뜀` : ''}`,
+          failed.length > 0 ? 'warn' : 'ok',
+          [scriptPath && `GPT 대본: ${scriptPath}`, ...failed.map((f) => `${f.page}p 건너뜀: ${f.message}`)]
+            .filter(Boolean)
+            .join('\n'),
+        )
       } catch (e) {
         results.push({ pptxPath: pair.pptxPath, outputPath, scriptPath, error: String(e) })
       }
@@ -217,7 +227,7 @@ function NotesTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
             <StepCard num={2} title="ChatGPT로 대본" desc="PPTX·녹취 + 프롬프트" />
           </>
         )}
-        <StepCard num={ai ? 2 : 3} title="파일 선택" desc={ai ? 'PPTX + 원본 녹취' : 'PPTX + 대본 TXT'}>
+        <StepCard num={ai ? 2 : 3} title="파일 선택" desc={ai ? 'PPTX + 원본 녹취' : 'PPTX + 대본 TXT'} action={resetButton}>
           <button className={dropCls('pptx')} data-drop="pptx" onClick={pickPptx}>
             PPTX 추가
           </button>
@@ -364,44 +374,48 @@ export default function App() {
     </StepCard>
   )
 
+  // 파일 선택 카드 오른쪽 위에 들어가는 초기화 버튼 (두 탭 공용)
+  const resetButton = (
+    <button className="secondary reset-btn" onClick={() => setResetKey((k) => k + 1)} title="넣은 파일·결과·경로 비우기">
+      초기화
+    </button>
+  )
+
   return (
-    <main className="app">
-      <div className="header-row">
-        <div className="tabs">
-          {tab &&
-            MODES.map((m) => (
-              <button key={m.tab} className={tab === m.tab ? 'active' : ''} onClick={() => setTab(m.tab)}>
-                {m.title}
+    <ToastProvider>
+      <main className="app">
+        <div className="header-row">
+          <div className="tabs">
+            {tab &&
+              MODES.map((m) => (
+                <button key={m.tab} className={tab === m.tab ? 'active' : ''} onClick={() => setTab(m.tab)}>
+                  {m.title}
+                </button>
+              ))}
+          </div>
+          <div className="header-right">
+            <label className="switch" title="OpenAI API(gpt-5.6-luna)로 ChatGPT 사이트 없이 앱 안에서 처리">
+              <input type="checkbox" checked={ai.enabled} onChange={(e) => updateAi({ enabled: e.target.checked })} />
+              <span className="switch-track" />
+              GPT 자동
+            </label>
+          </div>
+        </div>
+        {tab === null ? (
+          <div className="steps mode-select">
+            {MODES.map((m) => (
+              <button key={m.tab} className="mode-card" onClick={() => setTab(m.tab)}>
+                <span className="mode-title">{m.title}</span>
+                <span className="mode-desc">{m.desc}</span>
               </button>
             ))}
-        </div>
-        <div className="header-right">
-          {tab && (
-            <button className="secondary reset-btn" onClick={() => setResetKey((k) => k + 1)} title="넣은 파일·결과·경로 비우기">
-              초기화
-            </button>
-          )}
-          <label className="switch" title="OpenAI API(gpt-5.6-luna)로 ChatGPT 사이트 없이 앱 안에서 처리">
-            <input type="checkbox" checked={ai.enabled} onChange={(e) => updateAi({ enabled: e.target.checked })} />
-            <span className="switch-track" />
-            GPT 자동
-          </label>
-        </div>
-      </div>
-      {tab === null ? (
-        <div className="steps mode-select">
-          {MODES.map((m) => (
-            <button key={m.tab} className="mode-card" onClick={() => setTab(m.tab)}>
-              <span className="mode-title">{m.title}</span>
-              <span className="mode-desc">{m.desc}</span>
-            </button>
-          ))}
-        </div>
-      ) : tab === 'notes' ? (
-        <NotesTab key={resetKey} ai={ai.enabled} apiCard={apiCard} />
-      ) : (
-        <SummaryTab key={resetKey} ai={ai.enabled} apiCard={apiCard} />
-      )}
-    </main>
+          </div>
+        ) : tab === 'notes' ? (
+          <NotesTab key={resetKey} ai={ai.enabled} apiCard={apiCard} resetButton={resetButton} />
+        ) : (
+          <SummaryTab key={resetKey} ai={ai.enabled} apiCard={apiCard} resetButton={resetButton} />
+        )}
+      </main>
+    </ToastProvider>
   )
 }
