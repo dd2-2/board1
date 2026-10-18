@@ -9,6 +9,7 @@ import StepCard from './StepCard'
 interface SummaryPptResult {
   outputPath: string
   slideCount: number
+  warnings: string[]
 }
 
 interface RunResult {
@@ -253,6 +254,11 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
                   → 저장됨: {fileName(r.result.outputPath)} (총 {r.result.slideCount}페이지)
                 </div>
               )}
+              {r.result?.warnings.map((w) => (
+                <div className="warn-box" key={w}>
+                  {w}
+                </div>
+              ))}
               {r.error && <div className="error-box">{r.error}</div>}
             </div>
           ))}

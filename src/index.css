@@ -395,6 +395,14 @@ button.pair-remove:hover:not(:disabled) {
   white-space: pre-wrap;
 }
 
+.warn-box {
+  background: rgba(250, 204, 21, 0.1);
+  color: #facc15;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
 .result {
   margin-top: 8px;
   display: flex;

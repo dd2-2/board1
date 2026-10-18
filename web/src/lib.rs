@@ -869,6 +869,6 @@ impl SummaryPptResult {
 #[wasm_bindgen(js_name = buildSummaryPpt)]
 pub fn build_summary_ppt(mut template_bytes: Vec<u8>, txt: String) -> Result<SummaryPptResult, JsValue> {
     sanitize_extended_timestamp_fields(&mut template_bytes);
-    let (bytes, slide_count) = summary::build_summary_pptx(template_bytes, &txt).map_err(|e| JsValue::from_str(&e))?;
+    let (bytes, slide_count, _warnings) = summary::build_summary_pptx(template_bytes, &txt).map_err(|e| JsValue::from_str(&e))?;
     Ok(SummaryPptResult { bytes, slide_count })
 }

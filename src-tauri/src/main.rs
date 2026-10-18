@@ -24,6 +24,7 @@ fn import_notes(
 struct SummaryPptResult {
     output_path: String,
     slide_count: usize,
+    warnings: Vec<String>,
 }
 
 /// TXT 옆(또는 지정 폴더)에 "요약완성_{TXT이름}.pptx"로 저장. 같은 이름이 있으면 " (2)", " (3)"...을 붙여 기존 파일을 덮어쓰지 않는다.
@@ -36,7 +37,7 @@ fn build_summary_ppt(
     let txt = textfile::read_text_file(&txt_path)?;
     let mut template = std::fs::read(&template_path).map_err(|e| format!("템플릿 PPTX를 읽을 수 없습니다: {e}"))?;
     pptx::sanitize_extended_timestamp_fields(&mut template);
-    let (bytes, slide_count) = summary::build_summary_pptx(template, &txt)?;
+    let (bytes, slide_count, warnings) = summary::build_summary_pptx(template, &txt)?;
 
     let txt = Path::new(&txt_path);
     // "경로 지정"으로 고른 폴더가 있으면 거기, 없으면 TXT 옆
@@ -52,7 +53,7 @@ fn build_summary_ppt(
         n += 1;
     }
     std::fs::write(&output, bytes).map_err(|e| format!("파일이 사용 중이거나 저장 권한이 없습니다: {e}"))?;
-    Ok(SummaryPptResult { output_path: output.to_string_lossy().into_owned(), slide_count })
+    Ok(SummaryPptResult { output_path: output.to_string_lossy().into_owned(), slide_count, warnings })
 }
 
 #[tauri::command]

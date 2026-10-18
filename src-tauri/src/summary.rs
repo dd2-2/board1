@@ -291,9 +291,9 @@ pub fn parse_summary(text: &str) -> Result<Summary, String> {
 const SLIDE_REL_TYPE: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide";
 const SLIDE_CONTENT_TYPE: &str = "application/vnd.openxmlformats-officedocument.presentationml.slide+xml";
 
-/// 파싱 + 생성을 한 번에. 성공하면 (완성본 바이트, 총 슬라이드 수).
+/// 파싱 + 생성을 한 번에. 성공하면 (완성본 바이트, 총 슬라이드 수, 경고 목록).
 /// 호출 전에 zip 확장 타임스탬프 정리(sanitize_extended_timestamp_fields)는 호출부가 한다.
-pub fn build_summary_pptx(template: Vec<u8>, txt: &str) -> Result<(Vec<u8>, usize), String> {
+pub fn build_summary_pptx(template: Vec<u8>, txt: &str) -> Result<(Vec<u8>, usize, Vec<String>), String> {
     let summary = parse_summary(txt)?;
     let mut archive =
         ZipArchive::new(Cursor::new(template)).map_err(|e| format!("PPTX(zip) 열기 실패: {e}"))?;
@@ -360,6 +360,10 @@ pub fn build_summary_pptx(template: Vec<u8>, txt: &str) -> Result<(Vec<u8>, usiz
         .filter(|t| attr(t, "Type").is_some_and(|ty| ty.ends_with("/notesSlide")))
         .fold(body_rels.clone(), |acc, t| acc.replacen(t, "", 1));
 
+    // 대주제 칸은 한 줄 높이라 두 줄이 되면 아래 소주제 바와 겹침 → 넘칠 것 같으면 경고만
+    let topic_capacity = line_capacity(&body_template, "대주제");
+    let mut warnings = Vec::new();
+
     let mut used_rids: HashSet<String> = rel_targets.keys().cloned().collect();
     let mut next_sld_id = sld_ids.iter().map(|(id, _)| *id).max().unwrap_or(255) + 1;
     let mut next_slide_no = 1u32;
@@ -376,6 +380,9 @@ pub fn build_summary_pptx(template: Vec<u8>, txt: &str) -> Result<(Vec<u8>, usiz
             (&["소주제2"], vec![format!("②\t{}", body.sub2)]),
             (&["본문2"], body.items2.clone()),
         ];
+        if topic_capacity.is_some_and(|cap| text_width(&body.topic) > cap) {
+            warnings.push(format!("{page}페이지 대주제가 길어 두 줄이 됩니다(소주제 바와 겹칠 수 있음): {}", body.topic));
+        }
         let xml = fill_slide(&body_template, page, &fills)?;
         if i == 0 {
             overrides.insert(slide_paths[2].clone(), xml.into_bytes());
@@ -432,7 +439,29 @@ pub fn build_summary_pptx(template: Vec<u8>, txt: &str) -> Result<(Vec<u8>, usiz
     }
 
     let bytes = write_zip(&mut archive, &all_names, &overrides)?;
-    Ok((bytes, total))
+    Ok((bytes, total, warnings))
+}
+
+/// `{{name}}` 자리표시 도형 한 줄에 들어가는 글자 수(한글 1글자 기준, 칸 너비 ÷ 글자 크기).
+fn line_capacity(xml: &str, name: &str) -> Option<f64> {
+    let placeholder = format!("{{{{{name}}}}}");
+    let (a, b) = element_spans(xml, "p:sp").into_iter().find(|&(a, b)| texts(&xml[a..b]).concat().trim() == placeholder)?;
+    let sp = &xml[a..b];
+    let num = |s: &str, key: &str| -> Option<i64> {
+        let i = s.find(key)? + key.len();
+        let e = s[i..].find('"')?;
+        s[i..i + e].parse().ok()
+    };
+    let cx = num(sp, "<a:ext cx=\"")?;
+    let body_pr = tags(sp, "a:bodyPr").first().copied().unwrap_or("");
+    let insets = num(body_pr, "lIns=\"").unwrap_or(91440) + num(body_pr, "rIns=\"").unwrap_or(91440);
+    let sz = tags(sp, "a:rPr").iter().find_map(|t| num(t, "sz=\""))?; // 1/100 pt
+    Some((cx - insets) as f64 / (sz * 127) as f64) // 1pt = 12700 EMU
+}
+
+/// 대략적인 글자 폭(한글 등 전각 1, 영문·숫자 0.55, 공백 0.3).
+fn text_width(s: &str) -> f64 {
+    s.chars().map(|c| if c == ' ' { 0.3 } else if c.is_ascii() { 0.55 } else { 1.0 }).sum()
 }
 
 /// 템플릿에서 "줄바꿈 안 함(wrap=none)"으로 된 자리표시 도형은 긴 문장이 패널 밖으로 뻗어 나가므로,
@@ -743,9 +772,9 @@ mod tests {
     fn builds_from_real_template() {
         let template = std::fs::read(std::env::var("SUMMARY_TEMPLATE").unwrap()).unwrap();
         let txt = std::fs::read_to_string(std::env::var("SUMMARY_TXT").unwrap()).unwrap();
-        let (bytes, count) = build_summary_pptx(template, &txt).unwrap();
+        let (bytes, count, warnings) = build_summary_pptx(template, &txt).unwrap();
         std::fs::write(std::env::var("SUMMARY_OUT").unwrap(), bytes).unwrap();
-        println!("slides: {count}");
+        println!("slides: {count}, warnings: {warnings:?}");
     }
 
     #[test]
