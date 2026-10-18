@@ -369,12 +369,12 @@ interface Step {
   desc: string
 }
 
-/** 좌측 사용법: 사용자가 직접 하는 일만 블록으로 (GPT 자동 3단계 / 수동 4단계) */
+/** 사용법: 사용자가 직접 하는 일만 가로 카드로 (GPT 자동 3단계 / 수동 4단계) */
 const GUIDE: Record<Tab, Record<'ai' | 'manual', { steps: Step[]; result: string }>> = {
   notes: {
     manual: {
       steps: [
-        { title: '프롬프트 복사', desc: '오른쪽 복사 버튼' },
+        { title: '프롬프트 복사', desc: '아래 복사 버튼' },
         { title: 'ChatGPT에서 대본 받기', desc: 'PPTX·녹취 TXT + 프롬프트 업로드' },
         { title: '파일 선택', desc: 'PPTX + 받은 대본 TXT' },
         { title: '메모 입력 실행', desc: '기존 메모 보존은 교수님원문' },
@@ -393,7 +393,7 @@ const GUIDE: Record<Tab, Record<'ai' | 'manual', { steps: Step[]; result: string
   summary: {
     manual: {
       steps: [
-        { title: '프롬프트 복사', desc: '오른쪽 복사 버튼' },
+        { title: '프롬프트 복사', desc: '아래 복사 버튼' },
         { title: 'ChatGPT에서 요약 받기', desc: '스토리보드·녹취 + 프롬프트 업로드' },
         { title: '파일 선택', desc: '템플릿 PPTX + 요약 TXT' },
         { title: 'PPT 만들기', desc: 'TXT 여러 개면 한 번에' },
@@ -427,9 +427,7 @@ function Guide({ tab, ai }: { tab: Tab; ai: boolean }) {
         ))}
       </div>
       <div className="guide-result">
-        결과 <span className="hi">{result}</span>
-        <br />
-        입력 파일과 같은 폴더에 저장
+        결과: <span className="hi">{result}</span> (입력 파일과 같은 폴더에 저장)
       </div>
     </>
   )
@@ -452,10 +450,6 @@ export default function App() {
 
   return (
     <div className="layout">
-      <aside className="guide">
-        <h2>사용법</h2>
-        <Guide tab={tab} ai={ai.enabled} />
-      </aside>
       <main className="app">
         <div className="header-row">
           <h1>PPT + 녹취록메모</h1>
@@ -495,6 +489,7 @@ export default function App() {
             요약 PPT 생성
           </button>
         </div>
+        <Guide tab={tab} ai={ai.enabled} />
         {tab === 'notes' ? <NotesTab ai={ai.enabled} /> : <SummaryTab ai={ai.enabled} />}
       </main>
     </div>
