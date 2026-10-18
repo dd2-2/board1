@@ -233,7 +233,7 @@ function NotesTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
             <StepCard num={1} title="프롬프트 복사">
               <PromptTemplates />
             </StepCard>
-            <StepCard num={2} title="ChatGPT에서 대본 받기" desc="PPTX·녹취 + 프롬프트" />
+            <StepCard num={2} title="ChatGPT로 대본" desc="PPTX·녹취 + 프롬프트" />
           </>
         )}
         <StepCard num={ai ? 2 : 3} title="파일 선택" desc={ai ? 'PPTX + 원본 녹취' : 'PPTX + 대본 TXT'} active={dragActive}>
@@ -357,12 +357,17 @@ type Tab = 'notes' | 'summary'
 interface AiConfig {
   enabled: boolean
   apiKey: string
-  model: string
 }
 
+const MODES: { tab: Tab; title: string; desc: string }[] = [
+  { tab: 'notes', title: '스토리보드용(설계자)', desc: 'PPT 슬라이드 메모에 녹취 입력' },
+  { tab: 'summary', title: '다운로드교안용', desc: '템플릿으로 요약 교안 PPT 생성' },
+]
+
 export default function App() {
-  const [tab, setTab] = useState<Tab>('notes')
-  const [ai, setAi] = useState<AiConfig>({ enabled: false, apiKey: '', model: '' })
+  // 처음 실행하면 모드 선택 화면(null)부터
+  const [tab, setTab] = useState<Tab | null>(null)
+  const [ai, setAi] = useState<AiConfig>({ enabled: false, apiKey: '' })
 
   useEffect(() => {
     invoke<AiConfig>('get_ai_config').then(setAi)
@@ -375,7 +380,7 @@ export default function App() {
     invoke('set_ai_config', { config: next })
   }
 
-  // GPT 자동 모드의 1단계 카드 (두 탭 공용)
+  // GPT 자동 모드의 1단계 카드 (두 탭 공용, 모델은 gpt-5.6-luna 고정)
   const apiCard = (
     <StepCard num={1} title="API 키" desc="처음 한 번">
       <input
@@ -386,42 +391,40 @@ export default function App() {
         onChange={(e) => setAi({ ...ai, apiKey: e.target.value })}
         onBlur={() => updateAi({})}
       />
-      <input
-        className="text-input"
-        placeholder="모델"
-        title="모델"
-        value={ai.model}
-        onChange={(e) => setAi({ ...ai, model: e.target.value })}
-        onBlur={() => updateAi({})}
-      />
     </StepCard>
   )
 
   return (
-    <div className="layout">
-      <main className="app">
-        <div className="header-row">
-          <h1>PPT + 녹취록메모</h1>
-          <label className="switch" title="OpenAI API로 ChatGPT 사이트 없이 앱 안에서 처리">
-            <input type="checkbox" checked={ai.enabled} onChange={(e) => updateAi({ enabled: e.target.checked })} />
-            <span className="switch-track" />
-            GPT 자동
-          </label>
-        </div>
+    <main className="app">
+      <div className="header-row">
         <div className="tabs">
-          <button className={tab === 'notes' ? 'active' : ''} onClick={() => setTab('notes')}>
-            스토리보드용(설계자)
-          </button>
-          <button className={tab === 'summary' ? 'active' : ''} onClick={() => setTab('summary')}>
-            다운로드교안용
-          </button>
+          {tab &&
+            MODES.map((m) => (
+              <button key={m.tab} className={tab === m.tab ? 'active' : ''} onClick={() => setTab(m.tab)}>
+                {m.title}
+              </button>
+            ))}
         </div>
-        {tab === 'notes' ? (
-          <NotesTab ai={ai.enabled} apiCard={apiCard} />
-        ) : (
-          <SummaryTab ai={ai.enabled} apiCard={apiCard} />
-        )}
-      </main>
-    </div>
+        <label className="switch" title="OpenAI API(gpt-5.6-luna)로 ChatGPT 사이트 없이 앱 안에서 처리">
+          <input type="checkbox" checked={ai.enabled} onChange={(e) => updateAi({ enabled: e.target.checked })} />
+          <span className="switch-track" />
+          GPT 자동
+        </label>
+      </div>
+      {tab === null ? (
+        <div className="steps mode-select">
+          {MODES.map((m) => (
+            <button key={m.tab} className="mode-card" onClick={() => setTab(m.tab)}>
+              <span className="mode-title">{m.title}</span>
+              <span className="mode-desc">{m.desc}</span>
+            </button>
+          ))}
+        </div>
+      ) : tab === 'notes' ? (
+        <NotesTab ai={ai.enabled} apiCard={apiCard} />
+      ) : (
+        <SummaryTab ai={ai.enabled} apiCard={apiCard} />
+      )}
+    </main>
   )
 }

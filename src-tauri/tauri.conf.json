@@ -13,10 +13,10 @@
     "windows": [
       {
         "title": "board1",
-        "width": 1080,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 480,
+        "width": 800,
+        "height": 480,
+        "minWidth": 700,
+        "minHeight": 420,
         "resizable": true,
         "dragDropEnabled": true
       }

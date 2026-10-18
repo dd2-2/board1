@@ -1,6 +1,6 @@
 //! "GPT 자동" 모드: ChatGPT 사이트에 갈 필요 없이 OpenAI API로 대본/요약 TXT를 바로 만든다.
 //! 토큰 절약을 위해 PPTX는 파일째 보내지 않고 슬라이드 텍스트만 뽑아서 보낸다(이미지만 있는 슬라이드 내용은 GPT가 못 봄).
-//! 설정(API 키·모델)은 exe 옆 board1_config.json에 평문 저장 — 배포 계획 없는 개인 도구.
+//! 설정(API 키)은 exe 옆 board1_config.json에 평문 저장 — 배포 계획 없는 개인 도구.
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -9,7 +9,8 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use zip::ZipArchive;
 
-const DEFAULT_MODEL: &str = "gpt-5.6-luna";
+/// 모델은 고정 (사용자 지정)
+const MODEL: &str = "gpt-5.6-luna";
 /// Responses API — 최신 모델(gpt-5.6-luna 등)은 이쪽 전용일 수 있고, 예전 모델도 다 지원함
 const OPENAI_URL: &str = "https://api.openai.com/v1/responses";
 
@@ -18,7 +19,6 @@ const OPENAI_URL: &str = "https://api.openai.com/v1/responses";
 pub struct AiConfig {
     pub enabled: bool,
     pub api_key: String,
-    pub model: String,
 }
 
 fn config_path() -> PathBuf {
@@ -29,14 +29,10 @@ fn config_path() -> PathBuf {
 }
 
 pub fn load_config() -> AiConfig {
-    let mut cfg: AiConfig = std::fs::read_to_string(config_path())
+    std::fs::read_to_string(config_path())
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default();
-    if cfg.model.trim().is_empty() {
-        cfg.model = DEFAULT_MODEL.to_string();
-    }
-    cfg
+        .unwrap_or_default()
 }
 
 pub fn save_config(cfg: &AiConfig) -> Result<(), String> {
@@ -127,7 +123,7 @@ fn chat(cfg: &AiConfig, messages: Value) -> Result<String, String> {
         return Err("OpenAI API 키가 없습니다. 우측 위 GPT 자동 설정에서 입력하세요.".into());
     }
     let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(900)).build();
-    let body = json!({ "model": cfg.model.trim(), "input": messages });
+    let body = json!({ "model": MODEL, "input": messages });
     match agent
         .post(OPENAI_URL)
         .set("Authorization", &format!("Bearer {}", cfg.api_key.trim()))
@@ -274,7 +270,7 @@ mod network_tests {
     #[test]
     #[ignore]
     fn fake_key_error_is_readable() {
-        let cfg = super::AiConfig { enabled: true, api_key: "sk-invalid-test".into(), model: super::DEFAULT_MODEL.into() };
+        let cfg = super::AiConfig { enabled: true, api_key: "sk-invalid-test".into() };
         let err = super::chat(&cfg, serde_json::json!([{ "role": "user", "content": "hi" }])).unwrap_err();
         println!("{err}");
         assert!(err.starts_with("OpenAI 오류(401)"), "{err}");

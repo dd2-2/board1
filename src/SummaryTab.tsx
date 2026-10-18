@@ -151,7 +151,7 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
             <StepCard num={1} title="프롬프트 복사">
               <button onClick={copyPrompt}>{copied ? '복사됨' : '요약 프롬프트'}</button>
             </StepCard>
-            <StepCard num={2} title="ChatGPT에서 요약 받기" desc="스토리보드·녹취 + 프롬프트" />
+            <StepCard num={2} title="ChatGPT로 요약" desc="스토리보드·녹취 + 프롬프트" />
           </>
         )}
         <StepCard num={ai ? 2 : 3} title="파일 선택" desc={ai ? '템플릿 + 녹취 (+스토리보드)' : '템플릿 + 요약 TXT'} active={dragActive}>
