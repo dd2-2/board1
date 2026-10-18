@@ -313,3 +313,12 @@ GPT 자동 요약 지시문에 "대주제는 공백 포함 18자 이내"를 추�
 
 `build\board1_2026-10-18.zip` — `board1.exe` 하나만 넣음(단일 포터블 exe, 설정 파일은 첫 실행 때 exe 옆에 생성).
 같은 폴더의 `board1_config.json`은 사용자 API 키가 평문으로 들어 있어 제외, `board1_cpp_legacy.exe` 백업도 제외.
+
+## 2026-10-19
+
+### 현재 상태를 v1으로 확정
+
+사용자 요청 "이거를 v1 버전이라 해주고, 앞으로 v2로 올려 달라고 하면 올려줘". 앱 버전(`package.json`·`tauri.conf.json`·
+`Cargo.toml`)은 이미 1.0.0이라 그대로 두고, 현재 커밋에 git 태그 `v1`을 붙여 push, 배포 zip을 `build\board1_v1.zip`으로
+이름 변경. 앞으로 "v2로 올려줘"라고 하면: 세 파일 버전 2.0.0 → 빌드 → 커밋 + 태그 `v2` → `build\board1_v2.zip`(exe만,
+config 제외). 이 규칙은 메모리(project_board1)에도 기록.
