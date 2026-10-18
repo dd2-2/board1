@@ -126,7 +126,7 @@ function NotesTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
       for (const p of event.payload.paths) {
         const lower = p.toLowerCase()
         if (lower.endsWith('.pptx')) newPptx.push(p)
-        else if (lower.endsWith('.txt')) newTxt.push(p)
+        else if (/\.(txt|hwp|hwpx)$/.test(lower)) newTxt.push(p)
       }
       addFiles(newPptx, newTxt)
     })
@@ -150,7 +150,7 @@ function NotesTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
   async function pickTxt() {
     const selected = await open({
       multiple: true,
-      filters: [{ name: 'Text', extensions: ['txt'] }],
+      filters: [{ name: 'TXT / HWP / HWPX', extensions: ['txt', 'hwp', 'hwpx'] }],
     })
     if (Array.isArray(selected) && selected.length > 0) {
       addFiles([], selected)
@@ -238,8 +238,8 @@ function NotesTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
         )}
         <StepCard num={ai ? 2 : 3} title="파일 선택" desc={ai ? 'PPTX + 원본 녹취' : 'PPTX + 대본 TXT'} active={dragActive}>
           <button className="file-btn" onClick={pickPptx}>PPTX 추가</button>
-          <button className="file-btn" onClick={pickTxt}>TXT 추가</button>
-          <span className="step-hint">끌어놓기 가능</span>
+          <button className="file-btn" onClick={pickTxt}>{ai ? '녹취 추가' : 'TXT 추가'}</button>
+          <span className="step-hint">TXT·HWP·HWPX · 끌어놓기 가능</span>
         </StepCard>
         <StepCard num={ai ? 3 : 4} title="실행" desc="→ 녹취추가_원본.pptx">
           <button className="primary" onClick={() => run(false)} disabled={runnablePairs.length === 0 || running}>

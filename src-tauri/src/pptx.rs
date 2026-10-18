@@ -110,8 +110,7 @@ pub fn import_notes_from_script(
     txt_path: &str,
     keep_original: bool,
 ) -> Result<ImportSummary, String> {
-    let script_text =
-        fs::read_to_string(txt_path).map_err(|e| format!("대본 파일을 읽을 수 없습니다: {e}"))?;
+    let script_text = crate::textfile::read_text_file(txt_path)?;
     let blocks = parse_script(&script_text);
     if blocks.is_empty() {
         return Err("대본에서 'Np' 형식의 페이지 표시를 찾지 못했습니다.".to_string());

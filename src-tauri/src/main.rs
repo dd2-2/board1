@@ -3,6 +3,7 @@
 mod ai;
 mod pptx;
 mod summary;
+mod textfile;
 
 use pptx::ImportSummary;
 use serde::Serialize;
@@ -28,7 +29,7 @@ struct SummaryPptResult {
 /// TXT 옆에 "요약완성_{TXT이름}.pptx"로 저장. 같은 이름이 있으면 " (2)", " (3)"...을 붙여 기존 파일을 덮어쓰지 않는다.
 #[tauri::command]
 fn build_summary_ppt(template_path: String, txt_path: String) -> Result<SummaryPptResult, String> {
-    let txt = std::fs::read_to_string(&txt_path).map_err(|e| format!("TXT 파일을 읽을 수 없습니다(UTF-8 필요): {e}"))?;
+    let txt = textfile::read_text_file(&txt_path)?;
     let mut template = std::fs::read(&template_path).map_err(|e| format!("템플릿 PPTX를 읽을 수 없습니다: {e}"))?;
     pptx::sanitize_extended_timestamp_fields(&mut template);
     let (bytes, slide_count) = summary::build_summary_pptx(template, &txt)?;

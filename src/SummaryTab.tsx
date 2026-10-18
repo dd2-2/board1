@@ -75,7 +75,7 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
       setDragActive(false)
       if (event.payload.type !== 'drop') return
       const pptx = event.payload.paths.filter((p) => p.toLowerCase().endsWith('.pptx'))
-      const txt = event.payload.paths.filter((p) => p.toLowerCase().endsWith('.txt'))
+      const txt = event.payload.paths.filter((p) => /\.(txt|hwp|hwpx)$/i.test(p))
       if (pptx.length > 0) {
         setTemplatePath(pptx[pptx.length - 1])
         setResults(null)
@@ -96,7 +96,7 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
   }
 
   async function pickTxt() {
-    const selected = await open({ multiple: true, filters: [{ name: 'Text', extensions: ['txt'] }] })
+    const selected = await open({ multiple: true, filters: [{ name: 'TXT / HWP / HWPX', extensions: ['txt', 'hwp', 'hwpx'] }] })
     if (Array.isArray(selected)) addTxt(selected)
     else if (typeof selected === 'string') addTxt([selected])
   }
@@ -158,9 +158,9 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
           <button className="file-btn" onClick={pickTemplate} title={templatePath ?? ''}>
             {templatePath ? `템플릿: ${fileName(templatePath)}` : '템플릿 선택'}
           </button>
-          <button className="file-btn" onClick={pickTxt}>{ai ? '녹취 TXT 추가' : 'TXT 추가'}</button>
+          <button className="file-btn" onClick={pickTxt}>{ai ? '녹취 추가' : 'TXT 추가'}</button>
           {ai && <button className="file-btn" onClick={pickStoryboards}>스토리보드 추가</button>}
-          <span className="step-hint">끌어놓기 가능</span>
+          <span className="step-hint">TXT·HWP·HWPX · 끌어놓기 가능</span>
         </StepCard>
         <StepCard num={ai ? 3 : 4} title="실행" desc="→ 요약완성_이름.pptx">
           <button className="primary" onClick={run} disabled={!templatePath || txtPaths.length === 0 || running}>

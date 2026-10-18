@@ -95,9 +95,9 @@ fn slides_block(slides: &[String]) -> String {
         .join("\n\n")
 }
 
+/// 녹취는 TXT/HWP/HWPX 모두 가능
 fn read_txt(path: &str) -> Result<String, String> {
-    let s = std::fs::read_to_string(path).map_err(|e| format!("TXT 파일을 읽을 수 없습니다(UTF-8 필요): {e}"))?;
-    Ok(s.strip_prefix('\u{feff}').unwrap_or(&s).to_string())
+    crate::textfile::read_text_file(path)
 }
 
 /// 입력 TXT 옆에 "{prefix}{TXT이름}.txt", 같은 이름이 있으면 " (2)"... 붙임.
