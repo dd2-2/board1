@@ -41,29 +41,41 @@ body {
 .steps {
   display: flex;
   gap: 10px;
+  align-items: stretch;
 }
 
 .step {
   flex: 1;
   min-width: 0;
-  min-height: 110px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 16px;
+  padding: 14px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.step.drag-active {
+  border-color: var(--accent);
+  background: rgba(30, 215, 96, 0.08);
+}
+
+.step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .step-num {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
   border-radius: 50%;
   background: var(--accent);
   color: #000;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -71,25 +83,49 @@ body {
 }
 
 .step-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .step-desc {
   font-size: 12px;
   color: var(--muted);
-  margin-top: 2px;
 }
 
-.guide-result {
-  font-size: 12px;
+/* 버튼은 카드 아래쪽에 세로로 쌓음 */
+.step-body {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.step-body button {
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.step-body button.primary {
+  padding: 12px;
+  font-size: 13px;
+}
+
+button.secondary {
+  background: var(--panel-hover);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+button.secondary:hover:not(:disabled) {
+  background: #262626;
+}
+
+.step-hint {
+  font-size: 11px;
   color: var(--muted);
-  margin-bottom: 8px;
-}
-
-.guide-result .hi {
-  color: var(--accent);
-  font-weight: 600;
+  text-align: center;
 }
 
 .app {
@@ -307,56 +343,7 @@ button.pair-remove:hover:not(:disabled) {
   background: var(--panel-hover);
 }
 
-.drop-zone {
-  text-align: center;
-  padding: 16px;
-  border: 1px dashed var(--border);
-  border-radius: 10px;
-  color: var(--muted);
-  font-size: 13px;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
-}
 
-.drop-zone.drag-active {
-  border-color: var(--accent);
-  background: rgba(30, 215, 96, 0.12);
-  color: var(--text);
-}
-
-/* ---- GPT 프롬프트 ---- */
-
-.prompt-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.prompt-section h2 {
-  font-size: 14px;
-  margin: 0 0 2px;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.prompt-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  background: var(--panel);
-  border-radius: 10px;
-  padding: 14px 16px;
-  font-size: 13px;
-}
-
-.prompt-card:hover {
-  background: var(--panel-hover);
-}
-
-.prompt-card button {
-  flex-shrink: 0;
-}
 
 /* ---- 결과 ---- */
 
@@ -511,9 +498,6 @@ button.pair-remove:hover:not(:disabled) {
   border-color: var(--accent);
 }
 
-.model-input {
-  flex: 0 0 140px;
-}
 
 .batch-result-saved {
   font-size: 13px;

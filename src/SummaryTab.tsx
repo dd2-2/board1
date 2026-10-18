@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import summaryPrompt from './assets/prompts/summary.txt?raw'
+import StepCard from './StepCard'
 
 interface SummaryPptResult {
   outputPath: string
@@ -29,7 +30,7 @@ function leadingNumber(path: string): number | null {
 
 /** 디자인 템플릿(3페이지) PPTX 하나 + 요약 TXT 여러 개 → TXT마다 "요약완성_{TXT이름}.pptx"를 TXT 옆에 만든다.
  *  GPT 자동 모드에선 TXT가 원본 녹취록이고, GPT가 요약 TXT(AI요약_)를 먼저 만든 뒤 그걸로 PPT를 만든다. */
-export default function SummaryTab({ ai }: { ai: boolean }) {
+export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
   const [templatePath, setTemplatePath] = useState<string | null>(null)
   const [txtPaths, setTxtPaths] = useState<string[]>([])
   const [storyboards, setStoryboards] = useState<string[]>([])
@@ -142,80 +143,69 @@ export default function SummaryTab({ ai }: { ai: boolean }) {
 
   return (
     <>
-      {!ai && (
-        <div className="prompt-section">
-          <h2>GPT 프롬프트 (스토리보드+녹취 → 요약 TXT 생성용)</h2>
-          <div className="prompt-card">
-            <span>강의 요약 TXT 형식</span>
-            <button onClick={copyPrompt}>{copied ? '복사됨' : '복사'}</button>
-          </div>
+      <div className="steps">
+        {ai ? (
+          apiCard
+        ) : (
+          <>
+            <StepCard num={1} title="프롬프트 복사">
+              <button onClick={copyPrompt}>{copied ? '복사됨' : '요약 프롬프트'}</button>
+            </StepCard>
+            <StepCard num={2} title="ChatGPT에서 요약 받기" desc="스토리보드·녹취 + 프롬프트" />
+          </>
+        )}
+        <StepCard num={ai ? 2 : 3} title="파일 선택" desc={ai ? '템플릿 + 녹취 (+스토리보드)' : '템플릿 + 요약 TXT'} active={dragActive}>
+          <button className="file-btn" onClick={pickTemplate} title={templatePath ?? ''}>
+            {templatePath ? `템플릿: ${fileName(templatePath)}` : '템플릿 선택'}
+          </button>
+          <button className="file-btn" onClick={pickTxt}>{ai ? '녹취 TXT 추가' : 'TXT 추가'}</button>
+          {ai && <button className="file-btn" onClick={pickStoryboards}>스토리보드 추가</button>}
+          <span className="step-hint">끌어놓기 가능</span>
+        </StepCard>
+        <StepCard num={ai ? 3 : 4} title="실행" desc="→ 요약완성_이름.pptx">
+          <button className="primary" onClick={run} disabled={!templatePath || txtPaths.length === 0 || running}>
+            {running
+              ? progress || '생성 중...'
+              : `${ai ? 'GPT로 ' : ''}PPT 만들기${txtPaths.length > 1 ? ` (${txtPaths.length}건)` : ''}`}
+          </button>
+        </StepCard>
+      </div>
+
+      {txtPaths.length > 0 && (
+        <div className="pair-list">
+          {txtPaths.map((t) => (
+            <div className="pair-row" key={t}>
+              <div className="pair-pptx" title={t}>
+                {fileName(t)}
+              </div>
+              {ai && (
+                <>
+                  <span className="pair-arrow">+</span>
+                  <select
+                    className="pair-select"
+                    value={storyboardFor[t] ?? ''}
+                    onChange={(e) => setStoryboardFor((prev) => ({ ...prev, [t]: e.target.value }))}
+                  >
+                    <option value="">(스토리보드 없음)</option>
+                    {storyboards.map((sb) => (
+                      <option key={sb} value={sb}>
+                        {fileName(sb)}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+              <button
+                className="pair-remove"
+                onClick={() => setTxtPaths((prev) => prev.filter((p) => p !== t))}
+                title="목록에서 제거"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
         </div>
       )}
-
-      <div className="field">
-        <label>디자인 템플릿 PPTX (3페이지: 표지 / 학습목표·학습내용 / 본문 디자인)</label>
-        <div className="picker-row">
-          <div className={`picker-path ${templatePath ? '' : 'empty'}`} title={templatePath ?? ''}>
-            {templatePath ? fileName(templatePath) : '선택 안 됨'}
-          </div>
-          <button className="file-btn" onClick={pickTemplate}>템플릿 선택</button>
-        </div>
-      </div>
-
-      <div className="field">
-        <label>
-          {ai
-            ? '원본 녹취 TXT + 스토리보드 PPTX(선택) — 파일명 숫자로 자동 매칭'
-            : '요약 TXT (여러 건 가능 — TXT마다 완성본 PPT가 TXT 옆에 저장됨)'}
-        </label>
-        <div className="picker-row">
-          <button className="file-btn" onClick={pickTxt}>{ai ? '녹취 TXT 추가' : 'TXT 추가'}</button>
-          {ai && <button className="file-btn" onClick={pickStoryboards}>스토리보드 PPTX 추가</button>}
-        </div>
-        {txtPaths.length > 0 && (
-          <div className="pair-list">
-            {txtPaths.map((t) => (
-              <div className="pair-row" key={t}>
-                <div className="pair-pptx" title={t}>
-                  {fileName(t)}
-                </div>
-                {ai && (
-                  <>
-                    <span className="pair-arrow">+</span>
-                    <select
-                      className="pair-select"
-                      value={storyboardFor[t] ?? ''}
-                      onChange={(e) => setStoryboardFor((prev) => ({ ...prev, [t]: e.target.value }))}
-                    >
-                      <option value="">(스토리보드 없이 녹취만)</option>
-                      {storyboards.map((s) => (
-                        <option key={s} value={s}>
-                          {fileName(s)}
-                        </option>
-                      ))}
-                    </select>
-                  </>
-                )}
-                <button
-                  className="pair-remove"
-                  onClick={() => setTxtPaths((prev) => prev.filter((p) => p !== t))}
-                  title="목록에서 제거"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="run-row">
-        <button className="primary" onClick={run} disabled={!templatePath || txtPaths.length === 0 || running}>
-          {running
-            ? progress || '생성 중...'
-            : `${ai ? 'GPT로 ' : ''}PPT 만들기${txtPaths.length > 1 ? ` (${txtPaths.length}건)` : ''}`}
-        </button>
-      </div>
 
       {results && (
         <div className="result">
@@ -234,9 +224,6 @@ export default function SummaryTab({ ai }: { ai: boolean }) {
         </div>
       )}
 
-      <div className={`drop-zone ${dragActive ? 'drag-active' : ''}`}>
-        템플릿 pptx / {ai ? '녹취' : '요약'} txt 파일을 여기로 드래그하면 자동으로 선택됩니다.
-      </div>
     </>
   )
 }

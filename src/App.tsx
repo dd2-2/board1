@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import PromptTemplates from './PromptTemplates'
 import SummaryTab from './SummaryTab'
+import StepCard from './StepCard'
 
 interface PageResult {
   page: number
@@ -94,7 +95,7 @@ interface Batch {
   unmatchedTxt: string[]
 }
 
-function NotesTab({ ai }: { ai: boolean }) {
+function NotesTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
   const [batch, setBatch] = useState<Batch>({ pairs: [], unmatchedTxt: [] })
   const { pairs, unmatchedTxt } = batch
   const [running, setRunning] = useState(false)
@@ -224,83 +225,82 @@ function NotesTab({ ai }: { ai: boolean }) {
 
   return (
     <>
-      {!ai && <PromptTemplates />}
-
-      <div className="field">
-        <label>
-          {ai ? 'PPTX / 원본 녹취 TXT 파일' : 'PPTX / 녹취 TXT 파일'} (여러 건 선택 가능, 파일명 숫자로 자동 매칭)
-        </label>
-        <div className="picker-row">
+      <div className="steps">
+        {ai ? (
+          apiCard
+        ) : (
+          <>
+            <StepCard num={1} title="프롬프트 복사">
+              <PromptTemplates />
+            </StepCard>
+            <StepCard num={2} title="ChatGPT에서 대본 받기" desc="PPTX·녹취 + 프롬프트" />
+          </>
+        )}
+        <StepCard num={ai ? 2 : 3} title="파일 선택" desc={ai ? 'PPTX + 원본 녹취' : 'PPTX + 대본 TXT'} active={dragActive}>
           <button className="file-btn" onClick={pickPptx}>PPTX 추가</button>
           <button className="file-btn" onClick={pickTxt}>TXT 추가</button>
-        </div>
+          <span className="step-hint">끌어놓기 가능</span>
+        </StepCard>
+        <StepCard num={ai ? 3 : 4} title="실행" desc="→ 녹취추가_원본.pptx">
+          <button className="primary" onClick={() => run(false)} disabled={runnablePairs.length === 0 || running}>
+            {running
+              ? progress || '실행 중...'
+              : `${ai ? 'GPT로 ' : ''}메모 입력${runnablePairs.length > 1 ? ` (${runnablePairs.length}건)` : ''}`}
+          </button>
+          <button
+            className="secondary"
+            onClick={() => run(true)}
+            disabled={runnablePairs.length === 0 || running}
+            title="기존 메모(교수님원문)를 지우지 않고 새 내용 아래로 보존"
+          >
+            교수님원문 보존
+          </button>
+        </StepCard>
       </div>
 
       {pairs.length > 0 && (
-        <div className="field">
-          <div className="pair-list">
-            {pairs.map((pair) => (
-              <div className="pair-row" key={pair.pptxPath}>
-                <div className="pair-pptx" title={pair.pptxPath}>
-                  {fileName(pair.pptxPath)}
-                </div>
-                <span className="pair-arrow">→</span>
-                <select
-                  className={`pair-select ${pair.txtPath ? '' : 'empty'}`}
-                  value={pair.txtPath ?? ''}
-                  onChange={(e) => reassignTxt(pair.pptxPath, e.target.value)}
-                >
-                  <option value="">(매칭된 TXT 없음)</option>
-                  {pair.txtPath && <option value={pair.txtPath}>{fileName(pair.txtPath)}</option>}
-                  {unmatchedTxt.map((t) => (
-                    <option key={t} value={t}>
-                      {fileName(t)}
-                    </option>
-                  ))}
-                </select>
-                <button className="pair-remove" onClick={() => removePair(pair.pptxPath)} title="목록에서 제거">
-                  ✕
-                </button>
+        <div className="pair-list">
+          {pairs.map((pair) => (
+            <div className="pair-row" key={pair.pptxPath}>
+              <div className="pair-pptx" title={pair.pptxPath}>
+                {fileName(pair.pptxPath)}
               </div>
-            ))}
-          </div>
+              <span className="pair-arrow">→</span>
+              <select
+                className={`pair-select ${pair.txtPath ? '' : 'empty'}`}
+                value={pair.txtPath ?? ''}
+                onChange={(e) => reassignTxt(pair.pptxPath, e.target.value)}
+              >
+                <option value="">(TXT 없음)</option>
+                {pair.txtPath && <option value={pair.txtPath}>{fileName(pair.txtPath)}</option>}
+                {unmatchedTxt.map((t) => (
+                  <option key={t} value={t}>
+                    {fileName(t)}
+                  </option>
+                ))}
+              </select>
+              <button className="pair-remove" onClick={() => removePair(pair.pptxPath)} title="목록에서 제거">
+                ✕
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
       {unmatchedTxt.length > 0 && (
-        <div className="field">
-          <label>매칭 안 된 TXT ({unmatchedTxt.length}) — 위 목록에서 PPTX에 직접 지정하세요</label>
-          <div className="pair-list">
-            {unmatchedTxt.map((t) => (
-              <div className="pair-row" key={t}>
-                <div className="pair-pptx empty" title={t}>
-                  {fileName(t)}
-                </div>
-                <button className="pair-remove" onClick={() => removeUnmatchedTxt(t)} title="목록에서 제거">
-                  ✕
-                </button>
+        <div className="pair-list">
+          {unmatchedTxt.map((t) => (
+            <div className="pair-row" key={t}>
+              <div className="pair-pptx empty" title={t}>
+                짝 없는 TXT: {fileName(t)}
               </div>
-            ))}
-          </div>
+              <button className="pair-remove" onClick={() => removeUnmatchedTxt(t)} title="목록에서 제거">
+                ✕
+              </button>
+            </div>
+          ))}
         </div>
       )}
-
-      <div className="run-row">
-        <button
-          className="primary"
-          onClick={() => run(false)}
-          disabled={runnablePairs.length === 0 || running}
-        >
-          {running ? progress || '실행 중...' : `${ai ? 'GPT로 ' : ''}메모 입력 실행${runnablePairs.length > 1 ? ` (${runnablePairs.length}건)` : ''}`}
-        </button>
-        <button
-          onClick={() => run(true)}
-          disabled={runnablePairs.length === 0 || running}
-          title="기존 메모에 이미 있는 교수님원문은 지우지 않고 새 내용 아래로 밀어서 보존합니다."
-        >
-          교수님원문
-        </button>
-      </div>
 
       {error && <div className="error-box">{error}</div>}
 
@@ -348,10 +348,6 @@ function NotesTab({ ai }: { ai: boolean }) {
           ))}
         </div>
       )}
-
-      <div className={`drop-zone ${dragActive ? 'drag-active' : ''}`}>
-        pptx / txt 파일을 여기로 드래그하면 자동으로 선택됩니다. (여러 건 동시에 가능)
-      </div>
     </>
   )
 }
@@ -362,75 +358,6 @@ interface AiConfig {
   enabled: boolean
   apiKey: string
   model: string
-}
-
-interface Step {
-  title: string
-  desc: string
-}
-
-/** 사용법: 사용자가 직접 하는 일만 가로 카드로 (GPT 자동 3단계 / 수동 4단계) */
-const GUIDE: Record<Tab, Record<'ai' | 'manual', { steps: Step[]; result: string }>> = {
-  notes: {
-    manual: {
-      steps: [
-        { title: '프롬프트 복사', desc: '아래 복사 버튼' },
-        { title: 'ChatGPT에서 대본 받기', desc: 'PPTX·녹취 TXT + 프롬프트 업로드' },
-        { title: '파일 선택', desc: 'PPTX + 받은 대본 TXT' },
-        { title: '메모 입력 실행', desc: '기존 메모 보존은 교수님원문' },
-      ],
-      result: '녹취추가_원본이름.pptx',
-    },
-    ai: {
-      steps: [
-        { title: 'API 키 입력', desc: '처음 한 번만' },
-        { title: '파일 선택', desc: 'PPTX + 원본 녹취 TXT' },
-        { title: 'GPT로 메모 입력 실행', desc: '기존 메모 보존은 교수님원문' },
-      ],
-      result: '녹취추가_원본이름.pptx',
-    },
-  },
-  summary: {
-    manual: {
-      steps: [
-        { title: '프롬프트 복사', desc: '아래 복사 버튼' },
-        { title: 'ChatGPT에서 요약 받기', desc: '스토리보드·녹취 + 프롬프트 업로드' },
-        { title: '파일 선택', desc: '템플릿 PPTX + 요약 TXT' },
-        { title: 'PPT 만들기', desc: 'TXT 여러 개면 한 번에' },
-      ],
-      result: '요약완성_TXT이름.pptx',
-    },
-    ai: {
-      steps: [
-        { title: 'API 키 입력', desc: '처음 한 번만' },
-        { title: '파일 선택', desc: '템플릿 + 녹취 TXT (+스토리보드)' },
-        { title: 'GPT로 PPT 만들기', desc: 'TXT 여러 개면 한 번에' },
-      ],
-      result: '요약완성_AI요약_녹취이름.pptx',
-    },
-  },
-}
-
-function Guide({ tab, ai }: { tab: Tab; ai: boolean }) {
-  const { steps, result } = GUIDE[tab][ai ? 'ai' : 'manual']
-  return (
-    <>
-      <div className="steps">
-        {steps.map((st, i) => (
-          <div className="step" key={st.title}>
-            <span className="step-num">{i + 1}</span>
-            <div>
-              <div className="step-title">{st.title}</div>
-              <div className="step-desc">{st.desc}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="guide-result">
-        결과: <span className="hi">{result}</span> (입력 파일과 같은 폴더에 저장)
-      </div>
-    </>
-  )
 }
 
 export default function App() {
@@ -448,6 +375,28 @@ export default function App() {
     invoke('set_ai_config', { config: next })
   }
 
+  // GPT 자동 모드의 1단계 카드 (두 탭 공용)
+  const apiCard = (
+    <StepCard num={1} title="API 키" desc="처음 한 번">
+      <input
+        type="password"
+        className="text-input"
+        placeholder="sk-..."
+        value={ai.apiKey}
+        onChange={(e) => setAi({ ...ai, apiKey: e.target.value })}
+        onBlur={() => updateAi({})}
+      />
+      <input
+        className="text-input"
+        placeholder="모델"
+        title="모델"
+        value={ai.model}
+        onChange={(e) => setAi({ ...ai, model: e.target.value })}
+        onBlur={() => updateAi({})}
+      />
+    </StepCard>
+  )
+
   return (
     <div className="layout">
       <main className="app">
@@ -459,28 +408,6 @@ export default function App() {
             GPT 자동
           </label>
         </div>
-        {ai.enabled && (
-          <div className="field ai-settings">
-            <label>OpenAI API 설정 (이 PC의 exe 옆 board1_config.json에 저장)</label>
-            <div className="picker-row">
-              <input
-                type="password"
-                className="text-input"
-                placeholder="API 키 (sk-...)"
-                value={ai.apiKey}
-                onChange={(e) => setAi({ ...ai, apiKey: e.target.value })}
-                onBlur={() => updateAi({})}
-              />
-              <input
-                className="text-input model-input"
-                placeholder="모델"
-                value={ai.model}
-                onChange={(e) => setAi({ ...ai, model: e.target.value })}
-                onBlur={() => updateAi({})}
-              />
-            </div>
-          </div>
-        )}
         <div className="tabs">
           <button className={tab === 'notes' ? 'active' : ''} onClick={() => setTab('notes')}>
             PPT 메모 입력
@@ -489,8 +416,11 @@ export default function App() {
             요약 PPT 생성
           </button>
         </div>
-        <Guide tab={tab} ai={ai.enabled} />
-        {tab === 'notes' ? <NotesTab ai={ai.enabled} /> : <SummaryTab ai={ai.enabled} />}
+        {tab === 'notes' ? (
+          <NotesTab ai={ai.enabled} apiCard={apiCard} />
+        ) : (
+          <SummaryTab ai={ai.enabled} apiCard={apiCard} />
+        )}
       </main>
     </div>
   )
