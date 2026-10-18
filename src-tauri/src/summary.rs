@@ -333,12 +333,17 @@ pub fn build_summary_pptx(template: Vec<u8>, txt: &str) -> Result<(Vec<u8>, usiz
         .collect::<Result<_, String>>()?;
 
     let mut overrides: HashMap<String, Vec<u8>> = HashMap::new();
+    let slide_w: i64 = tags(&pres, "p:sldSz")
+        .first()
+        .and_then(|t| attr(t, "cx"))
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(6858000);
 
-    let cover = read_text(&mut archive, &slide_paths[0])?;
+    let cover = widen_nowrap_placeholders(&read_text(&mut archive, &slide_paths[0])?, slide_w);
     let cover = fill_slide(&cover, 1, &[(&["차시타이틀", "차시명"], vec![summary.title.clone()])])?;
     overrides.insert(slide_paths[0].clone(), cover.into_bytes());
 
-    let guide = read_text(&mut archive, &slide_paths[1])?;
+    let guide = widen_nowrap_placeholders(&read_text(&mut archive, &slide_paths[1])?, slide_w);
     let guide = fill_slide(
         &guide,
         2,
@@ -346,7 +351,7 @@ pub fn build_summary_pptx(template: Vec<u8>, txt: &str) -> Result<(Vec<u8>, usiz
     )?;
     overrides.insert(slide_paths[1].clone(), guide.into_bytes());
 
-    let body_template = read_text(&mut archive, &slide_paths[2])?;
+    let body_template = widen_nowrap_placeholders(&read_text(&mut archive, &slide_paths[2])?, slide_w);
     let body_rels_path = rels_path_of(&slide_paths[2]);
     let body_rels = read_text(&mut archive, &body_rels_path)?;
     // 복제본은 원본 3페이지의 메모(notesSlide)를 공유하면 안 되므로 그 관계만 뺀다.
@@ -428,6 +433,74 @@ pub fn build_summary_pptx(template: Vec<u8>, txt: &str) -> Result<(Vec<u8>, usiz
 
     let bytes = write_zip(&mut archive, &all_names, &overrides)?;
     Ok((bytes, total))
+}
+
+/// 템플릿에서 "줄바꿈 안 함(wrap=none)"으로 된 자리표시 도형은 긴 문장이 패널 밖으로 뻗어 나가므로,
+/// 줄바꿈되도록 바꾸고 너비를 늘린다. 오른쪽 끝은 같은 슬라이드의 다른 도형 중 가장 오른쪽 끝에 맞추고
+/// (학습목표 → 학습내용 칸, 대주제 → 소주제 바), 다른 도형이 없거나 더 짧으면 슬라이드 좌우 여백까지.
+/// 가운데 정렬 도형(표지 제목)은 좌우 여백을 똑같이 둔다.
+fn widen_nowrap_placeholders(xml: &str, slide_w: i64) -> String {
+    let margin = slide_w * 537 / 10000; // 이 템플릿의 좌측 안내선(368300/6858000)과 같은 비율
+    struct Shape {
+        span: (usize, usize),
+        x: i64,
+        cx: i64,
+        target: bool,
+        center: bool,
+    }
+    let num_after = |sp: &str, key: &str| -> Option<i64> {
+        let i = sp.find(key)? + key.len();
+        let e = sp[i..].find('"')?;
+        sp[i..i + e].parse().ok()
+    };
+    let shapes: Vec<Shape> = element_spans(xml, "p:sp")
+        .into_iter()
+        .filter_map(|(a, b)| {
+            let sp = &xml[a..b];
+            if sp.contains("<p:ph") {
+                return None; // 슬라이드 번호 등 레이아웃 개체 틀은 제외
+            }
+            let x = num_after(sp, "<a:off x=\"")?;
+            let cx = num_after(sp, "<a:ext cx=\"")?;
+            let text = texts(sp).concat();
+            let t = text.trim();
+            let placeholder = t.starts_with("{{") && t.ends_with("}}");
+            let nowrap = tags(sp, "a:bodyPr").first().is_some_and(|bp| bp.contains(r#"wrap="none""#));
+            let center = tags(sp, "a:pPr").first().is_some_and(|pp| pp.contains(r#"algn="ctr""#));
+            Some(Shape { span: (a, b), x, cx, target: placeholder && nowrap, center })
+        })
+        .collect();
+
+    let mut out = String::with_capacity(xml.len());
+    let mut pos = 0;
+    for (i, sh) in shapes.iter().enumerate() {
+        if !sh.target {
+            continue;
+        }
+        let (new_x, new_cx) = if sh.center {
+            (margin, slide_w - 2 * margin)
+        } else {
+            let other_right = shapes
+                .iter()
+                .enumerate()
+                .filter(|(j, _)| *j != i)
+                .map(|(_, o)| o.x + o.cx)
+                .max()
+                .unwrap_or(0);
+            let right = if other_right > sh.x + sh.cx { other_right } else { slide_w - margin };
+            (sh.x, right - sh.x)
+        };
+        let sp = &xml[sh.span.0..sh.span.1];
+        let fixed = sp
+            .replacen(r#"wrap="none""#, r#"wrap="square""#, 1)
+            .replacen(&format!(r#"<a:off x="{}""#, sh.x), &format!(r#"<a:off x="{new_x}""#), 1)
+            .replacen(&format!(r#"<a:ext cx="{}""#, sh.cx), &format!(r#"<a:ext cx="{new_cx}""#), 1);
+        out.push_str(&xml[pos..sh.span.0]);
+        out.push_str(&fixed);
+        pos = sh.span.1;
+    }
+    out.push_str(&xml[pos..]);
+    out
 }
 
 /// 슬라이드 XML에서 텍스트 전체가 `{{이름}}`인 텍스트 도형을 찾아 내용을 바꾼다.
