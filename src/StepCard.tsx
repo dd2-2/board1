@@ -5,17 +5,15 @@ export default function StepCard({
   num,
   title,
   desc,
-  active,
   children,
 }: {
   num: number
   title: string
   desc?: ReactNode
-  active?: boolean
   children?: ReactNode
 }) {
   return (
-    <div className={`step ${active ? 'drag-active' : ''}`}>
+    <div className="step">
       <div className="step-head">
         <span className="step-num">{num}</span>
         <span className="step-title">{title}</span>

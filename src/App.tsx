@@ -1,10 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
-import { getCurrentWebview } from '@tauri-apps/api/webview'
 import PromptTemplates from './PromptTemplates'
 import SummaryTab from './SummaryTab'
 import StepCard from './StepCard'
+import { useDropTargets } from './useDropTargets'
 
 interface PageResult {
   page: number
@@ -102,7 +102,6 @@ function NotesTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
   const [progress, setProgress] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [batchResults, setBatchResults] = useState<BatchResult[] | null>(null)
-  const [dragActive, setDragActive] = useState(false)
 
   function addFiles(newPptx: string[], newTxt: string[]) {
     setBatch((prev) => addFilesToBatch(prev.pairs, prev.unmatchedTxt, newPptx, newTxt))
@@ -110,30 +109,12 @@ function NotesTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
     setError(null)
   }
 
-  useEffect(() => {
-    const unlisten = getCurrentWebview().onDragDropEvent((event) => {
-      if (event.payload.type === 'over') {
-        setDragActive(true)
-        return
-      }
-      if (event.payload.type !== 'drop') {
-        setDragActive(false)
-        return
-      }
-      setDragActive(false)
-      const newPptx: string[] = []
-      const newTxt: string[] = []
-      for (const p of event.payload.paths) {
-        const lower = p.toLowerCase()
-        if (lower.endsWith('.pptx')) newPptx.push(p)
-        else if (/\.(txt|hwp|hwpx)$/.test(lower)) newTxt.push(p)
-      }
-      addFiles(newPptx, newTxt)
-    })
-    return () => {
-      unlisten.then((f) => f())
-    }
-  }, [])
+  // 각 버튼 위에 놓은 파일만, 그 버튼이 받는 형식만
+  const dropHover = useDropTargets({
+    pptx: { exts: ['pptx'], onDrop: (p) => addFiles(p, []) },
+    txt: { exts: ['txt', 'hwp', 'hwpx'], onDrop: (p) => addFiles([], p) },
+  })
+  const dropCls = (key: string) => `file-btn ${dropHover === key ? 'drop-hover' : ''}`
 
   async function pickPptx() {
     const selected = await open({
@@ -236,9 +217,14 @@ function NotesTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
             <StepCard num={2} title="ChatGPT로 대본" desc="PPTX·녹취 + 프롬프트" />
           </>
         )}
-        <StepCard num={ai ? 2 : 3} title="파일 선택" desc={ai ? 'PPTX + 원본 녹취' : 'PPTX + 대본 TXT'} active={dragActive}>
-          <button className="file-btn" onClick={pickPptx}>PPTX 추가</button>
-          <button className="file-btn" onClick={pickTxt}>{ai ? '녹취 추가' : 'TXT 추가'}</button>        </StepCard>
+        <StepCard num={ai ? 2 : 3} title="파일 선택" desc={ai ? 'PPTX + 원본 녹취' : 'PPTX + 대본 TXT'}>
+          <button className={dropCls('pptx')} data-drop="pptx" onClick={pickPptx}>
+            PPTX 추가
+          </button>
+          <button className={dropCls('txt')} data-drop="txt" onClick={pickTxt}>
+            {ai ? '녹취 추가' : 'TXT 추가'}
+          </button>
+        </StepCard>
         <StepCard num={ai ? 3 : 4} title="실행" desc="→ 녹취추가_원본.pptx">
           <button className="primary" onClick={() => run(false)} disabled={runnablePairs.length === 0 || running}>
             {running

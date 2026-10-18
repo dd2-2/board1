@@ -55,9 +55,10 @@ body {
   transition: border-color 0.15s, background 0.15s;
 }
 
-.step.drag-active {
-  border-color: var(--accent);
-  background: rgba(30, 215, 96, 0.08);
+/* 파일을 끌어서 받을 수 있는 버튼 위에 있을 때 */
+.step-body button.drop-hover {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .step-head {

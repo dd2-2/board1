@@ -1,10 +1,10 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
-import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import summaryPrompt from './assets/prompts/summary.txt?raw'
 import StepCard from './StepCard'
+import { useDropTargets } from './useDropTargets'
 
 interface SummaryPptResult {
   outputPath: string
@@ -37,65 +37,48 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
   const [outputDir, setOutputDir] = useState<string | null>(null)
   const [txtPaths, setTxtPaths] = useState<string[]>([])
   const [storyboards, setStoryboards] = useState<string[]>([])
-  // 녹취 TXT → 스토리보드 PPTX (GPT 자동 모드 전용, ''이면 스토리보드 없이)
-  const [storyboardFor, setStoryboardFor] = useState<Record<string, string>>({})
+  // 사용자가 드롭다운으로 직접 고른 스토리보드 (''이면 '없음'을 고른 것). 안 고른 녹취는 파일명 숫자로 자동 매칭
+  const [manualStoryboard, setManualStoryboard] = useState<Record<string, string>>({})
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState('')
   const [results, setResults] = useState<RunResult[] | null>(null)
   const [copied, setCopied] = useState(false)
-  const [dragActive, setDragActive] = useState(false)
 
   function addTxt(paths: string[]) {
     setTxtPaths((prev) => [...prev, ...paths.filter((p) => !prev.includes(p))])
     setResults(null)
   }
 
-  // 새로 들어온 녹취/스토리보드는 파일명 첫 숫자로 자동 매칭 (각 1개뿐이면 그냥 짝지음)
-  useEffect(() => {
-    setStoryboardFor((prev) => {
-      const next: Record<string, string> = {}
-      for (const t of txtPaths) {
-        if (t in prev && (prev[t] === '' || storyboards.includes(prev[t]))) {
-          next[t] = prev[t]
-          continue
-        }
-        const n = leadingNumber(t)
-        const match =
-          (n !== null && storyboards.find((s) => leadingNumber(s) === n)) ||
-          (txtPaths.length === 1 && storyboards.length === 1 ? storyboards[0] : '')
-        next[t] = match || ''
-      }
-      return next
-    })
-  }, [txtPaths, storyboards])
+  function addStoryboards(paths: string[]) {
+    setStoryboards((prev) => [...prev, ...paths.filter((p) => !prev.includes(p))])
+  }
 
-  useEffect(() => {
-    const unlisten = getCurrentWebview().onDragDropEvent((event) => {
-      if (event.payload.type === 'over') {
-        setDragActive(true)
-        return
-      }
-      setDragActive(false)
-      if (event.payload.type !== 'drop') return
-      const pptx = event.payload.paths.filter((p) => p.toLowerCase().endsWith('.pptx'))
-      const txt = event.payload.paths.filter((p) => /\.(txt|hwp|hwpx)$/i.test(p))
-      if (pptx.length > 0) {
-        setTemplatePath(pptx[pptx.length - 1])
-        setResults(null)
-      }
-      if (txt.length > 0) addTxt(txt)
-    })
-    return () => {
-      unlisten.then((f) => f())
+  function setTemplate(path: string) {
+    setTemplatePath(path)
+    setResults(null)
+  }
+
+  /** 녹취에 짝지을 스토리보드: 직접 고른 값 → 파일명 첫 숫자가 같은 것 → (녹취·스토리보드 각 1개면) 그것 */
+  function storyboardOf(t: string): string {
+    if (t in manualStoryboard && (manualStoryboard[t] === '' || storyboards.includes(manualStoryboard[t]))) {
+      return manualStoryboard[t]
     }
-  }, [])
+    const n = leadingNumber(t)
+    const byNumber = n !== null ? storyboards.find((s) => leadingNumber(s) === n) : undefined
+    return byNumber ?? (txtPaths.length === 1 && storyboards.length === 1 ? storyboards[0] : '')
+  }
+
+  // 각 버튼 위에 놓은 파일만, 그 버튼이 받는 형식만
+  const dropHover = useDropTargets({
+    template: { exts: ['pptx'], onDrop: (p) => setTemplate(p[p.length - 1]) },
+    txt: { exts: ['txt', 'hwp', 'hwpx'], onDrop: addTxt },
+    storyboard: { exts: ['pptx'], onDrop: addStoryboards },
+  })
+  const dropCls = (key: string) => `file-btn ${dropHover === key ? 'drop-hover' : ''}`
 
   async function pickTemplate() {
     const selected = await open({ multiple: false, filters: [{ name: 'PowerPoint', extensions: ['pptx'] }] })
-    if (typeof selected === 'string') {
-      setTemplatePath(selected)
-      setResults(null)
-    }
+    if (typeof selected === 'string') setTemplate(selected)
   }
 
   async function pickTxt() {
@@ -106,8 +89,7 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
 
   async function pickStoryboards() {
     const selected = await open({ multiple: true, filters: [{ name: 'PowerPoint', extensions: ['pptx'] }] })
-    const list = Array.isArray(selected) ? selected : typeof selected === 'string' ? [selected] : []
-    setStoryboards((prev) => [...prev, ...list.filter((p) => !prev.includes(p))])
+    addStoryboards(Array.isArray(selected) ? selected : typeof selected === 'string' ? [selected] : [])
   }
 
   async function pickOutputDir() {
@@ -132,7 +114,7 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
           setProgress(`GPT 요약 생성 중... (${i + 1}/${txtPaths.length})`)
           summaryTxtPath = await invoke<string>('ai_generate_summary', {
             transcriptPath: txtPath,
-            storyboardPath: storyboardFor[txtPath] || null,
+            storyboardPath: storyboardOf(txtPath) || null,
           })
         }
         const result = await invoke<SummaryPptResult>('build_summary_ppt', {
@@ -184,12 +166,16 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
                 <li>GPT에서 나온 요약 파일</li>
               </ol>
             )
-          } active={dragActive}>
-          <button className="file-btn" onClick={pickTemplate} title={templatePath ?? ''}>
+          }>
+          <button className={dropCls('template')} data-drop="template" onClick={pickTemplate} title={templatePath ?? ''}>
             {templatePath ? `템플릿: ${fileName(templatePath)}` : '템플릿 선택'}
           </button>
-          <button className="file-btn" onClick={pickTxt}>{ai ? '녹취 추가' : 'TXT 추가'}</button>
-          {ai && <button className="file-btn" onClick={pickStoryboards}>스토리보드 추가</button>}
+          <button className={dropCls('txt')} data-drop="txt" onClick={pickTxt}>{ai ? '녹취 추가' : 'TXT 추가'}</button>
+          {ai && (
+            <button className={dropCls('storyboard')} data-drop="storyboard" onClick={pickStoryboards}>
+              {storyboards.length > 0 ? `스토리보드 추가 (${storyboards.length})` : '스토리보드 추가'}
+            </button>
+          )}
         </StepCard>
         <StepCard
           num={ai ? 3 : 4}
@@ -219,8 +205,8 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
                   <span className="pair-arrow">+</span>
                   <select
                     className="pair-select"
-                    value={storyboardFor[t] ?? ''}
-                    onChange={(e) => setStoryboardFor((prev) => ({ ...prev, [t]: e.target.value }))}
+                    value={storyboardOf(t)}
+                    onChange={(e) => setManualStoryboard((prev) => ({ ...prev, [t]: e.target.value }))}
                   >
                     <option value="">(스토리보드 없음)</option>
                     {storyboards.map((sb) => (
