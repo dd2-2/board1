@@ -410,10 +410,10 @@ export default function App() {
         </div>
         <div className="tabs">
           <button className={tab === 'notes' ? 'active' : ''} onClick={() => setTab('notes')}>
-            PPT 메모 입력
+            스토리보드용(설계자)
           </button>
           <button className={tab === 'summary' ? 'active' : ''} onClick={() => setTab('summary')}>
-            요약 PPT 생성
+            다운로드교안용
           </button>
         </div>
         {tab === 'notes' ? (
