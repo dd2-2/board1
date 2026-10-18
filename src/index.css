@@ -107,9 +107,16 @@ body {
   text-overflow: ellipsis;
 }
 
+/* 카드 안 버튼은 종류와 상관없이 같은 크기 (테두리 없는 버튼도 투명 테두리로 높이를 맞춤) */
+.step-body button,
 .step-body button.primary {
-  padding: 12px;
+  padding: 9px 16px;
   font-size: 13px;
+  border: 1px solid transparent;
+}
+
+.step-body button.secondary {
+  border-color: var(--border);
 }
 
 button.secondary {
