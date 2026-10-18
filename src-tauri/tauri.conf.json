@@ -15,7 +15,7 @@
         "title": "board1",
         "width": 1070,
         "height": 305,
-        "minWidth": 1070,
+        "minWidth": 480,
         "minHeight": 305,
         "resizable": true,
         "dragDropEnabled": true

@@ -36,12 +36,14 @@ body {
   /* 남은 높이를 카드가 채움 (아래에 파일 목록/결과가 생기면 그만큼 스크롤) */
   flex: 1 0 auto;
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: stretch;
 }
 
 .step {
-  flex: 1;
+  /* 창이 좁아지면 카드가 다음 줄로 넘어감 */
+  flex: 1 1 200px;
   min-width: 0;
   display: flex;
   flex-direction: column;
