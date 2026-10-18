@@ -10,7 +10,7 @@ export default function StepCard({
 }: {
   num: number
   title: string
-  desc?: string
+  desc?: ReactNode
   active?: boolean
   children?: ReactNode
 }) {

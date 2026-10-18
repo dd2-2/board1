@@ -32,6 +32,8 @@ function leadingNumber(path: string): number | null {
  *  GPT 자동 모드에선 TXT가 원본 녹취록이고, GPT가 요약 TXT(AI요약_)를 먼저 만든 뒤 그걸로 PPT를 만든다. */
 export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
   const [templatePath, setTemplatePath] = useState<string | null>(null)
+  // 저장 폴더 (null이면 TXT 옆)
+  const [outputDir, setOutputDir] = useState<string | null>(null)
   const [txtPaths, setTxtPaths] = useState<string[]>([])
   const [storyboards, setStoryboards] = useState<string[]>([])
   // 녹취 TXT → 스토리보드 PPTX (GPT 자동 모드 전용, ''이면 스토리보드 없이)
@@ -107,6 +109,11 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
     setStoryboards((prev) => [...prev, ...list.filter((p) => !prev.includes(p))])
   }
 
+  async function pickOutputDir() {
+    const selected = await open({ directory: true, multiple: false })
+    if (typeof selected === 'string') setOutputDir(selected)
+  }
+
   async function copyPrompt() {
     await writeText(summaryPrompt)
     setCopied(true)
@@ -130,6 +137,7 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
         const result = await invoke<SummaryPptResult>('build_summary_ppt', {
           templatePath,
           txtPath: summaryTxtPath ?? txtPath,
+          outputDir,
         })
         out.push({ txtPath, summaryTxtPath, result })
       } catch (e) {
@@ -151,18 +159,45 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
             <StepCard num={1} title="프롬프트 복사">
               <button onClick={copyPrompt}>{copied ? '복사됨' : '요약 프롬프트'}</button>
             </StepCard>
-            <StepCard num={2} title="ChatGPT로 요약" desc="스토리보드·녹취 + 프롬프트" />
+            <StepCard
+              num={2}
+              title="ChatGPT로 요약"
+              desc={
+                <>
+                  <ol className="step-list">
+                    <li>스토리보드.pptx</li>
+                    <li>강의 녹취.txt or hwp</li>
+                  </ol>
+                  + 복사된 프롬프트 → GPT
+                </>
+              }
+            />
           </>
         )}
-        <StepCard num={ai ? 2 : 3} title="파일 선택" desc={ai ? '템플릿 + 녹취 (+스토리보드)' : '템플릿 + 요약 TXT'} active={dragActive}>
+        <StepCard num={ai ? 2 : 3} title="파일 선택" desc={
+            ai ? (
+              '템플릿 + 녹취 (+스토리보드)'
+            ) : (
+              <ol className="step-list">
+                <li>템플릿 (다운로드교안 디자인 파일)</li>
+                <li>GPT에서 나온 요약 파일</li>
+              </ol>
+            )
+          } active={dragActive}>
           <button className="file-btn" onClick={pickTemplate} title={templatePath ?? ''}>
             {templatePath ? `템플릿: ${fileName(templatePath)}` : '템플릿 선택'}
           </button>
           <button className="file-btn" onClick={pickTxt}>{ai ? '녹취 추가' : 'TXT 추가'}</button>
           {ai && <button className="file-btn" onClick={pickStoryboards}>스토리보드 추가</button>}
-          <span className="step-hint">TXT·HWP·HWPX · 끌어놓기 가능</span>
         </StepCard>
-        <StepCard num={ai ? 3 : 4} title="실행" desc="→ 요약완성_이름.pptx">
+        <StepCard
+          num={ai ? 3 : 4}
+          title="실행"
+          desc={`→ ${outputDir ? fileName(outputDir) + '/' : 'TXT 옆 '}요약완성_이름.pptx`}
+        >
+          <button className="secondary" onClick={pickOutputDir} title={outputDir ?? 'TXT와 같은 폴더에 저장'}>
+            {outputDir ? `경로: ${fileName(outputDir)}` : '경로 지정'}
+          </button>
           <button className="primary" onClick={run} disabled={!templatePath || txtPaths.length === 0 || running}>
             {running
               ? progress || '생성 중...'

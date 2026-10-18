@@ -238,9 +238,7 @@ function NotesTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
         )}
         <StepCard num={ai ? 2 : 3} title="파일 선택" desc={ai ? 'PPTX + 원본 녹취' : 'PPTX + 대본 TXT'} active={dragActive}>
           <button className="file-btn" onClick={pickPptx}>PPTX 추가</button>
-          <button className="file-btn" onClick={pickTxt}>{ai ? '녹취 추가' : 'TXT 추가'}</button>
-          <span className="step-hint">TXT·HWP·HWPX · 끌어놓기 가능</span>
-        </StepCard>
+          <button className="file-btn" onClick={pickTxt}>{ai ? '녹취 추가' : 'TXT 추가'}</button>        </StepCard>
         <StepCard num={ai ? 3 : 4} title="실행" desc="→ 녹취추가_원본.pptx">
           <button className="primary" onClick={() => run(false)} disabled={runnablePairs.length === 0 || running}>
             {running

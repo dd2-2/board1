@@ -126,6 +126,11 @@ button.secondary:hover:not(:disabled) {
   flex: none;
 }
 
+.step-list {
+  margin: 0 0 2px;
+  padding-left: 18px;
+}
+
 .step-hint {
   font-size: 11px;
   color: var(--muted);
