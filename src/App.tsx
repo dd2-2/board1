@@ -217,8 +217,8 @@ function NotesTab() {
       <div className="field">
         <label>PPTX / 녹취 TXT 파일 (여러 건 선택 가능, 파일명 숫자로 자동 매칭)</label>
         <div className="picker-row">
-          <button onClick={pickPptx}>PPTX 추가</button>
-          <button onClick={pickTxt}>TXT 추가</button>
+          <button className="file-btn" onClick={pickPptx}>PPTX 추가</button>
+          <button className="file-btn" onClick={pickTxt}>TXT 추가</button>
         </div>
       </div>
 

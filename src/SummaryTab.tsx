@@ -108,14 +108,14 @@ export default function SummaryTab() {
           <div className={`picker-path ${templatePath ? '' : 'empty'}`} title={templatePath ?? ''}>
             {templatePath ? fileName(templatePath) : '선택 안 됨'}
           </div>
-          <button onClick={pickTemplate}>템플릿 선택</button>
+          <button className="file-btn" onClick={pickTemplate}>템플릿 선택</button>
         </div>
       </div>
 
       <div className="field">
         <label>요약 TXT (여러 건 가능 — TXT마다 완성본 PPT가 TXT 옆에 저장됨)</label>
         <div className="picker-row">
-          <button onClick={pickTxt}>TXT 추가</button>
+          <button className="file-btn" onClick={pickTxt}>TXT 추가</button>
         </div>
         {txtPaths.length > 0 && (
           <div className="pair-list">

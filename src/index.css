@@ -102,7 +102,7 @@ body {
 
 button {
   font-family: inherit;
-  background: #ffffff;
+  background: var(--accent);
   color: #000;
   border: none;
   border-radius: 999px;
@@ -114,6 +114,15 @@ button {
 }
 
 button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+/* 웹의 파일 선택(input type=file) 버튼과 같은 흰색 */
+button.file-btn {
+  background: #ffffff;
+}
+
+button.file-btn:hover:not(:disabled) {
   background: #f0f0f0;
 }
 
