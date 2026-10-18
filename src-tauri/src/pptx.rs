@@ -397,7 +397,7 @@ fn resolve_rel_target(base_dir: &str, target: &str) -> String {
     parts.join("/")
 }
 
-fn build_slide_path_by_page(
+pub(crate) fn build_slide_path_by_page(
     archive: &mut ZipArchive<Cursor<Vec<u8>>>,
 ) -> Result<HashMap<u32, String>, String> {
     let pres_xml =

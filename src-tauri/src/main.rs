@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod ai;
 mod pptx;
 mod summary;
 
@@ -45,6 +46,31 @@ fn build_summary_ppt(template_path: String, txt_path: String) -> Result<SummaryP
     Ok(SummaryPptResult { output_path: output.to_string_lossy().into_owned(), slide_count })
 }
 
+#[tauri::command]
+fn get_ai_config() -> ai::AiConfig {
+    ai::load_config()
+}
+
+#[tauri::command]
+fn set_ai_config(config: ai::AiConfig) -> Result<(), String> {
+    ai::save_config(&config)
+}
+
+/// GPT 호출은 수십 초~수 분 걸리므로 UI가 멈추지 않게 블로킹 스레드에서 실행.
+async fn blocking<T: Send + 'static>(f: impl FnOnce() -> Result<T, String> + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(f).await.map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn ai_generate_script(pptx_path: String, transcript_path: String) -> Result<String, String> {
+    blocking(move || ai::generate_script(&pptx_path, &transcript_path)).await
+}
+
+#[tauri::command]
+async fn ai_generate_summary(transcript_path: String, storyboard_path: Option<String>) -> Result<String, String> {
+    blocking(move || ai::generate_summary(&transcript_path, storyboard_path.as_deref())).await
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -57,7 +83,14 @@ fn main() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
-        .invoke_handler(tauri::generate_handler![import_notes, build_summary_ppt])
+        .invoke_handler(tauri::generate_handler![
+            import_notes,
+            build_summary_ppt,
+            get_ai_config,
+            set_ai_config,
+            ai_generate_script,
+            ai_generate_summary
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

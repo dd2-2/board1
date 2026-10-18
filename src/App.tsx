@@ -23,6 +23,7 @@ interface Pair {
 interface BatchResult {
   pptxPath: string
   outputPath: string
+  scriptPath?: string
   summary?: ImportSummary
   error?: string
 }
@@ -93,10 +94,11 @@ interface Batch {
   unmatchedTxt: string[]
 }
 
-function NotesTab() {
+function NotesTab({ ai }: { ai: boolean }) {
   const [batch, setBatch] = useState<Batch>({ pairs: [], unmatchedTxt: [] })
   const { pairs, unmatchedTxt } = batch
   const [running, setRunning] = useState(false)
+  const [progress, setProgress] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [batchResults, setBatchResults] = useState<BatchResult[] | null>(null)
   const [dragActive, setDragActive] = useState(false)
@@ -192,30 +194,42 @@ function NotesTab() {
     setError(null)
     setBatchResults(null)
     const results: BatchResult[] = []
-    for (const pair of runnablePairs) {
+    for (const [i, pair] of runnablePairs.entries()) {
       const outputPath = outputPathFor(pair.pptxPath)
+      let scriptPath: string | undefined
       try {
+        // GPT 자동 모드: 원본 녹취 TXT → GPT가 "Np" 대본 TXT를 만들고, 그 대본으로 메모 입력
+        if (ai) {
+          setProgress(`GPT 대본 생성 중... (${i + 1}/${runnablePairs.length})`)
+          scriptPath = await invoke<string>('ai_generate_script', {
+            pptxPath: pair.pptxPath,
+            transcriptPath: pair.txtPath,
+          })
+        }
         const summary = await invoke<ImportSummary>('import_notes', {
           pptxPath: pair.pptxPath,
           outputPath,
-          txtPath: pair.txtPath,
+          txtPath: scriptPath ?? pair.txtPath,
           keepOriginal,
         })
-        results.push({ pptxPath: pair.pptxPath, outputPath, summary })
+        results.push({ pptxPath: pair.pptxPath, outputPath, scriptPath, summary })
       } catch (e) {
-        results.push({ pptxPath: pair.pptxPath, outputPath, error: String(e) })
+        results.push({ pptxPath: pair.pptxPath, outputPath, scriptPath, error: String(e) })
       }
       setBatchResults([...results])
     }
+    setProgress('')
     setRunning(false)
   }
 
   return (
     <>
-      <PromptTemplates />
+      {!ai && <PromptTemplates />}
 
       <div className="field">
-        <label>PPTX / 녹취 TXT 파일 (여러 건 선택 가능, 파일명 숫자로 자동 매칭)</label>
+        <label>
+          {ai ? 'PPTX / 원본 녹취 TXT 파일' : 'PPTX / 녹취 TXT 파일'} (여러 건 선택 가능, 파일명 숫자로 자동 매칭)
+        </label>
         <div className="picker-row">
           <button className="file-btn" onClick={pickPptx}>PPTX 추가</button>
           <button className="file-btn" onClick={pickTxt}>TXT 추가</button>
@@ -277,7 +291,7 @@ function NotesTab() {
           onClick={() => run(false)}
           disabled={runnablePairs.length === 0 || running}
         >
-          {running ? '실행 중...' : `메모 입력 실행${runnablePairs.length > 1 ? ` (${runnablePairs.length}건)` : ''}`}
+          {running ? progress || '실행 중...' : `${ai ? 'GPT로 ' : ''}메모 입력 실행${runnablePairs.length > 1 ? ` (${runnablePairs.length}건)` : ''}`}
         </button>
         <button
           onClick={() => run(true)}
@@ -295,6 +309,7 @@ function NotesTab() {
           {batchResults.map((r) => (
             <div className="batch-result" key={r.pptxPath}>
               <h3 className="batch-result-title">{fileName(r.pptxPath)}</h3>
+              {r.scriptPath && <div className="batch-result-note">GPT 대본: {fileName(r.scriptPath)}</div>}
               {r.summary && (
                 <div className="batch-result-saved">→ 저장됨: {fileName(r.outputPath)}</div>
               )}
@@ -343,33 +358,104 @@ function NotesTab() {
 
 type Tab = 'notes' | 'summary'
 
+interface AiConfig {
+  enabled: boolean
+  apiKey: string
+  model: string
+}
+
+function Guide({ tab, ai }: { tab: Tab; ai: boolean }) {
+  if (tab === 'notes') {
+    return ai ? (
+      <ol>
+        <li>우측 위 <span className="hi">GPT 자동</span>이 켜져 있으면 ChatGPT에 갈 필요 없음 (API 키 필요).</li>
+        <li>원본 강의안(PPTX)과 <span className="hi">원본 녹취록 TXT</span> 선택 (여러 건도 한번에 가능, 파일명 숫자로 자동 매칭).</li>
+        <li>하단 <span className="hi">"GPT로 메모 입력 실행"</span> 클릭 (기존 메모를 보존하려면 <span className="hi">"교수님원문"</span>).</li>
+        <li>GPT가 슬라이드별 대본을 만들어 녹취 TXT 옆에 <span className="hi">AI대본_녹취이름.txt</span>로 저장.</li>
+        <li>그 대본으로 메모를 넣어 원본 PPTX와 같은 폴더에 <span className="hi">녹취추가_원본이름.pptx</span>로 저장됨.</li>
+      </ol>
+    ) : (
+      <ol>
+        <li>오른쪽 <span className="hi">GPT 프롬프트</span> 복사(복사 버튼).</li>
+        <li>강의안(PPTX), 녹취록(TXT)을 ChatGPT 채팅창에 복사된 프롬프트(1)와 함께 일괄 업로드.</li>
+        <li>결과물(TXT) 파일 다운로드.</li>
+        <li>오른쪽에서 원본 강의안(PPTX)과 방금 받은 정리된 TXT 파일 선택 (여러 건도 한번에 가능, 파일명 숫자로 자동 매칭).</li>
+        <li>하단 <span className="hi">"메모 입력 실행"</span> 클릭 (기존 메모를 보존하려면 <span className="hi">"교수님원문"</span>).</li>
+        <li>원본 PPTX와 같은 폴더에 <span className="hi">녹취추가_원본이름.pptx</span>로 저장됨.</li>
+      </ol>
+    )
+  }
+  return ai ? (
+    <ol>
+      <li>우측 위 <span className="hi">GPT 자동</span>이 켜져 있으면 ChatGPT에 갈 필요 없음 (API 키 필요).</li>
+      <li><span className="hi">디자인 템플릿 PPTX</span>(3페이지, {'{{차시타이틀}}/{{학습목표}}/{{대주제}}'} 등 자리표시 포함) 선택.</li>
+      <li><span className="hi">원본 녹취록 TXT</span> 추가, 스토리보드 PPTX가 있으면 함께 추가 (파일명 숫자로 자동 매칭).</li>
+      <li><span className="hi">"GPT로 PPT 만들기"</span> 클릭.</li>
+      <li>GPT 요약은 <span className="hi">AI요약_녹취이름.txt</span>, 완성본은 <span className="hi">요약완성_AI요약_녹취이름.pptx</span>로 녹취 TXT 옆에 저장됨.</li>
+    </ol>
+  ) : (
+    <ol>
+      <li>오른쪽 <span className="hi">GPT 프롬프트</span> 복사(복사 버튼).</li>
+      <li>스토리보드, 녹취록을 ChatGPT에 프롬프트와 함께 업로드해 요약 TXT를 받음.</li>
+      <li><span className="hi">디자인 템플릿 PPTX</span>(3페이지, {'{{차시타이틀}}/{{학습목표}}/{{대주제}}'} 등 자리표시 포함)와 요약 TXT 선택 (TXT 여러 건 가능).</li>
+      <li><span className="hi">"PPT 만들기"</span> 클릭.</li>
+      <li>TXT와 같은 폴더에 <span className="hi">요약완성_TXT이름.pptx</span>로 저장됨.</li>
+    </ol>
+  )
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>('notes')
+  const [ai, setAi] = useState<AiConfig>({ enabled: false, apiKey: '', model: '' })
+
+  useEffect(() => {
+    invoke<AiConfig>('get_ai_config').then(setAi)
+  }, [])
+
+  /** 변경 즉시 exe 옆 board1_config.json에 저장 */
+  function updateAi(patch: Partial<AiConfig>) {
+    const next = { ...ai, ...patch }
+    setAi(next)
+    invoke('set_ai_config', { config: next })
+  }
+
   return (
     <div className="layout">
       <aside className="guide">
         <h2>사용법</h2>
-        {tab === 'notes' ? (
-          <ol>
-            <li>오른쪽 <span className="hi">GPT 프롬프트</span> 복사(복사 버튼).</li>
-            <li>강의안(PPTX), 녹취록(TXT)을 ChatGPT 채팅창에 복사된 프롬프트(1)와 함께 일괄 업로드.</li>
-            <li>결과물(TXT) 파일 다운로드.</li>
-            <li>오른쪽에서 원본 강의안(PPTX)과 방금 받은 정리된 TXT 파일 선택 (여러 건도 한번에 가능, 파일명 숫자로 자동 매칭).</li>
-            <li>하단 <span className="hi">"메모 입력 실행"</span> 클릭 (기존 메모를 보존하려면 <span className="hi">"교수님원문"</span>).</li>
-            <li>원본 PPTX와 같은 폴더에 <span className="hi">녹취추가_원본이름.pptx</span>로 저장됨.</li>
-          </ol>
-        ) : (
-          <ol>
-            <li>오른쪽 <span className="hi">GPT 프롬프트</span> 복사(복사 버튼).</li>
-            <li>스토리보드, 녹취록을 ChatGPT에 프롬프트와 함께 업로드해 요약 TXT를 받음.</li>
-            <li><span className="hi">디자인 템플릿 PPTX</span>(3페이지, {'{{차시타이틀}}/{{학습목표}}/{{대주제}}'} 등 자리표시 포함)와 요약 TXT 선택 (TXT 여러 건 가능).</li>
-            <li><span className="hi">"PPT 만들기"</span> 클릭.</li>
-            <li>TXT와 같은 폴더에 <span className="hi">요약완성_TXT이름.pptx</span>로 저장됨.</li>
-          </ol>
-        )}
+        <Guide tab={tab} ai={ai.enabled} />
       </aside>
       <main className="app">
-        <h1>PPT + 녹취록메모</h1>
+        <div className="header-row">
+          <h1>PPT + 녹취록메모</h1>
+          <label className="switch" title="OpenAI API로 ChatGPT 사이트 없이 앱 안에서 처리">
+            <input type="checkbox" checked={ai.enabled} onChange={(e) => updateAi({ enabled: e.target.checked })} />
+            <span className="switch-track" />
+            GPT 자동
+          </label>
+        </div>
+        {ai.enabled && (
+          <div className="field ai-settings">
+            <label>OpenAI API 설정 (이 PC의 exe 옆 board1_config.json에 저장)</label>
+            <div className="picker-row">
+              <input
+                type="password"
+                className="text-input"
+                placeholder="API 키 (sk-...)"
+                value={ai.apiKey}
+                onChange={(e) => setAi({ ...ai, apiKey: e.target.value })}
+                onBlur={() => updateAi({})}
+              />
+              <input
+                className="text-input model-input"
+                placeholder="모델"
+                value={ai.model}
+                onChange={(e) => setAi({ ...ai, model: e.target.value })}
+                onBlur={() => updateAi({})}
+              />
+            </div>
+          </div>
+        )}
         <div className="tabs">
           <button className={tab === 'notes' ? 'active' : ''} onClick={() => setTab('notes')}>
             PPT 메모 입력
@@ -378,7 +464,7 @@ export default function App() {
             요약 PPT 생성
           </button>
         </div>
-        {tab === 'notes' ? <NotesTab /> : <SummaryTab />}
+        {tab === 'notes' ? <NotesTab ai={ai.enabled} /> : <SummaryTab ai={ai.enabled} />}
       </main>
     </div>
   )
