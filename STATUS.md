@@ -128,3 +128,13 @@ GitHub Actions Pages 배포 성공(2분 10초), 배포 사이트에 새 탭/wasm
   올라오는 것 확인. **실제 키로 대본/요약을 생성하는 테스트는 키가 없어 못 함** — 사용자 실사용 필요
 - 화면: 숨김 체크박스라 UI Automation으로 토글이 안 잡혀서, 설정 파일에 enabled=true를 써두고 재실행해
   두 탭 모두 캡처 확인 후 테스트 설정 파일 삭제
+
+### 기본 모델 gpt-5.6-luna + Responses API로 전환 (같은 날 후속)
+
+사용자가 "gpt 5.6 luna 돌릴 거야"라고 해서 기본 모델을 `gpt-5.6-luna`로 변경. 공식 OpenAI 문서에서는 모델
+ID를 확인하지 못했고 외부 모델 카탈로그(Pi, AIML API, Bedrock 등) 기준. 그중 Pi 카탈로그가 이 모델의 API를
+`openai-responses`로 표기 → 최신 모델이 Chat Completions를 지원하지 않을 가능성에 대비해 호출을
+`/v1/chat/completions`에서 `/v1/responses`로 교체(`input`에 같은 messages 배열, 응답은 `output[]`의 message
+항목 안 `output_text`를 이어 붙임, 잘림은 `status=incomplete`로 판정). Responses API는 예전 모델도 지원하므로
+모델 칸을 다른 이름으로 바꿔도 동작. 가짜 키로 새 엔드포인트 호출 시 401 오류 메시지가 정상으로 올라오는
+것 확인, 실제 키로는 여전히 미검증.

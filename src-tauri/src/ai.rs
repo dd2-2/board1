@@ -9,8 +9,9 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 use zip::ZipArchive;
 
-const DEFAULT_MODEL: &str = "gpt-5-mini";
-const OPENAI_URL: &str = "https://api.openai.com/v1/chat/completions";
+const DEFAULT_MODEL: &str = "gpt-5.6-luna";
+/// Responses API — 최신 모델(gpt-5.6-luna 등)은 이쪽 전용일 수 있고, 예전 모델도 다 지원함
+const OPENAI_URL: &str = "https://api.openai.com/v1/responses";
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase", default)]
@@ -126,7 +127,7 @@ fn chat(cfg: &AiConfig, messages: Value) -> Result<String, String> {
         return Err("OpenAI API 키가 없습니다. 우측 위 GPT 자동 설정에서 입력하세요.".into());
     }
     let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(900)).build();
-    let body = json!({ "model": cfg.model.trim(), "messages": messages });
+    let body = json!({ "model": cfg.model.trim(), "input": messages });
     match agent
         .post(OPENAI_URL)
         .set("Authorization", &format!("Bearer {}", cfg.api_key.trim()))
@@ -134,15 +135,24 @@ fn chat(cfg: &AiConfig, messages: Value) -> Result<String, String> {
     {
         Ok(resp) => {
             let v: Value = resp.into_json().map_err(|e| format!("OpenAI 응답 해석 실패: {e}"))?;
-            let choice = &v["choices"][0];
-            if choice["finish_reason"] == "length" {
+            if v["status"] == "incomplete" {
                 return Err("GPT 출력이 길이 제한에 걸려 잘렸습니다. 녹취를 나눠서 다시 시도하세요.".into());
             }
-            choice["message"]["content"]
-                .as_str()
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .ok_or_else(|| "GPT가 빈 응답을 돌려줬습니다.".into())
+            // output[]의 message 항목들 안의 output_text를 이어 붙임 (reasoning 항목은 건너뜀)
+            let text: String = v["output"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .filter(|item| item["type"] == "message")
+                .flat_map(|item| item["content"].as_array().cloned().unwrap_or_default())
+                .filter(|c| c["type"] == "output_text")
+                .filter_map(|c| c["text"].as_str().map(str::to_string))
+                .collect();
+            let text = text.trim().to_string();
+            if text.is_empty() {
+                return Err("GPT가 빈 응답을 돌려줬습니다.".into());
+            }
+            Ok(text)
         }
         Err(ureq::Error::Status(code, resp)) => {
             let msg = resp
@@ -264,7 +274,7 @@ mod network_tests {
     #[test]
     #[ignore]
     fn fake_key_error_is_readable() {
-        let cfg = super::AiConfig { enabled: true, api_key: "sk-invalid-test".into(), model: "gpt-5-mini".into() };
+        let cfg = super::AiConfig { enabled: true, api_key: "sk-invalid-test".into(), model: super::DEFAULT_MODEL.into() };
         let err = super::chat(&cfg, serde_json::json!([{ "role": "user", "content": "hi" }])).unwrap_err();
         println!("{err}");
         assert!(err.starts_with("OpenAI 오류(401)"), "{err}");
