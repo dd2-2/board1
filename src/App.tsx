@@ -364,43 +364,74 @@ interface AiConfig {
   model: string
 }
 
+interface Step {
+  title: string
+  desc: string
+}
+
+/** 좌측 사용법: 사용자가 직접 하는 일만 블록으로 (GPT 자동 3단계 / 수동 4단계) */
+const GUIDE: Record<Tab, Record<'ai' | 'manual', { steps: Step[]; result: string }>> = {
+  notes: {
+    manual: {
+      steps: [
+        { title: '프롬프트 복사', desc: '오른쪽 복사 버튼' },
+        { title: 'ChatGPT에서 대본 받기', desc: 'PPTX·녹취 TXT + 프롬프트 업로드' },
+        { title: '파일 선택', desc: 'PPTX + 받은 대본 TXT' },
+        { title: '메모 입력 실행', desc: '기존 메모 보존은 교수님원문' },
+      ],
+      result: '녹취추가_원본이름.pptx',
+    },
+    ai: {
+      steps: [
+        { title: 'API 키 입력', desc: '처음 한 번만' },
+        { title: '파일 선택', desc: 'PPTX + 원본 녹취 TXT' },
+        { title: 'GPT로 메모 입력 실행', desc: '기존 메모 보존은 교수님원문' },
+      ],
+      result: '녹취추가_원본이름.pptx',
+    },
+  },
+  summary: {
+    manual: {
+      steps: [
+        { title: '프롬프트 복사', desc: '오른쪽 복사 버튼' },
+        { title: 'ChatGPT에서 요약 받기', desc: '스토리보드·녹취 + 프롬프트 업로드' },
+        { title: '파일 선택', desc: '템플릿 PPTX + 요약 TXT' },
+        { title: 'PPT 만들기', desc: 'TXT 여러 개면 한 번에' },
+      ],
+      result: '요약완성_TXT이름.pptx',
+    },
+    ai: {
+      steps: [
+        { title: 'API 키 입력', desc: '처음 한 번만' },
+        { title: '파일 선택', desc: '템플릿 + 녹취 TXT (+스토리보드)' },
+        { title: 'GPT로 PPT 만들기', desc: 'TXT 여러 개면 한 번에' },
+      ],
+      result: '요약완성_AI요약_녹취이름.pptx',
+    },
+  },
+}
+
 function Guide({ tab, ai }: { tab: Tab; ai: boolean }) {
-  if (tab === 'notes') {
-    return ai ? (
-      <ol>
-        <li>우측 위 <span className="hi">GPT 자동</span>이 켜져 있으면 ChatGPT에 갈 필요 없음 (API 키 필요).</li>
-        <li>원본 강의안(PPTX)과 <span className="hi">원본 녹취록 TXT</span> 선택 (여러 건도 한번에 가능, 파일명 숫자로 자동 매칭).</li>
-        <li>하단 <span className="hi">"GPT로 메모 입력 실행"</span> 클릭 (기존 메모를 보존하려면 <span className="hi">"교수님원문"</span>).</li>
-        <li>GPT가 슬라이드별 대본을 만들어 녹취 TXT 옆에 <span className="hi">AI대본_녹취이름.txt</span>로 저장.</li>
-        <li>그 대본으로 메모를 넣어 원본 PPTX와 같은 폴더에 <span className="hi">녹취추가_원본이름.pptx</span>로 저장됨.</li>
-      </ol>
-    ) : (
-      <ol>
-        <li>오른쪽 <span className="hi">GPT 프롬프트</span> 복사(복사 버튼).</li>
-        <li>강의안(PPTX), 녹취록(TXT)을 ChatGPT 채팅창에 복사된 프롬프트(1)와 함께 일괄 업로드.</li>
-        <li>결과물(TXT) 파일 다운로드.</li>
-        <li>오른쪽에서 원본 강의안(PPTX)과 방금 받은 정리된 TXT 파일 선택 (여러 건도 한번에 가능, 파일명 숫자로 자동 매칭).</li>
-        <li>하단 <span className="hi">"메모 입력 실행"</span> 클릭 (기존 메모를 보존하려면 <span className="hi">"교수님원문"</span>).</li>
-        <li>원본 PPTX와 같은 폴더에 <span className="hi">녹취추가_원본이름.pptx</span>로 저장됨.</li>
-      </ol>
-    )
-  }
-  return ai ? (
-    <ol>
-      <li>우측 위 <span className="hi">GPT 자동</span>이 켜져 있으면 ChatGPT에 갈 필요 없음 (API 키 필요).</li>
-      <li><span className="hi">디자인 템플릿 PPTX</span>(3페이지, {'{{차시타이틀}}/{{학습목표}}/{{대주제}}'} 등 자리표시 포함) 선택.</li>
-      <li><span className="hi">원본 녹취록 TXT</span> 추가, 스토리보드 PPTX가 있으면 함께 추가 (파일명 숫자로 자동 매칭).</li>
-      <li><span className="hi">"GPT로 PPT 만들기"</span> 클릭.</li>
-      <li>GPT 요약은 <span className="hi">AI요약_녹취이름.txt</span>, 완성본은 <span className="hi">요약완성_AI요약_녹취이름.pptx</span>로 녹취 TXT 옆에 저장됨.</li>
-    </ol>
-  ) : (
-    <ol>
-      <li>오른쪽 <span className="hi">GPT 프롬프트</span> 복사(복사 버튼).</li>
-      <li>스토리보드, 녹취록을 ChatGPT에 프롬프트와 함께 업로드해 요약 TXT를 받음.</li>
-      <li><span className="hi">디자인 템플릿 PPTX</span>(3페이지, {'{{차시타이틀}}/{{학습목표}}/{{대주제}}'} 등 자리표시 포함)와 요약 TXT 선택 (TXT 여러 건 가능).</li>
-      <li><span className="hi">"PPT 만들기"</span> 클릭.</li>
-      <li>TXT와 같은 폴더에 <span className="hi">요약완성_TXT이름.pptx</span>로 저장됨.</li>
-    </ol>
+  const { steps, result } = GUIDE[tab][ai ? 'ai' : 'manual']
+  return (
+    <>
+      <div className="steps">
+        {steps.map((st, i) => (
+          <div className="step" key={st.title}>
+            <span className="step-num">{i + 1}</span>
+            <div>
+              <div className="step-title">{st.title}</div>
+              <div className="step-desc">{st.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="guide-result">
+        결과 <span className="hi">{result}</span>
+        <br />
+        입력 파일과 같은 폴더에 저장
+      </div>
+    </>
   )
 }
 
