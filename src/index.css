@@ -315,8 +315,8 @@ button.primary:disabled {
   flex: 1;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: 6px;
+  padding: 3px 8px;
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
@@ -330,7 +330,7 @@ button.primary:disabled {
 .pair-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .pair-row {
@@ -343,8 +343,8 @@ button.primary:disabled {
   flex: 1;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: 6px;
+  padding: 3px 8px;
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
@@ -366,8 +366,8 @@ button.primary:disabled {
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: 6px;
+  padding: 3px 8px;
   font-size: 12px;
   font-family: inherit;
 }
@@ -379,8 +379,9 @@ button.primary:disabled {
 
 button.pair-remove {
   flex-shrink: 0;
-  padding: 6px 10px;
-  border-radius: 8px;
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 6px;
   background: var(--bg);
   color: var(--text);
   border: 1px solid var(--border);
@@ -401,6 +402,63 @@ button.pair-remove:hover:not(:disabled) {
   padding: 14px 16px;
   font-size: 13px;
   white-space: pre-wrap;
+}
+
+/* 결과: 파일마다 한 줄 (자세한 내용은 마우스를 올리면 툴팁) */
+.result-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.result-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  background: rgba(30, 215, 96, 0.08);
+  min-width: 0;
+}
+
+.result-line.warn {
+  background: rgba(250, 204, 21, 0.08);
+}
+
+.result-line.fail {
+  background: rgba(241, 94, 108, 0.1);
+}
+
+.result-mark {
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.result-line.warn .result-mark,
+.result-line.warn .result-detail {
+  color: #facc15;
+}
+
+.result-line.fail .result-mark,
+.result-line.fail .result-detail {
+  color: var(--err);
+}
+
+.result-name {
+  font-weight: 700;
+  flex-shrink: 0;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.result-detail {
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .warn-box {
@@ -490,6 +548,17 @@ button.pair-remove:hover:not(:disabled) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+button.reset-btn {
+  padding: 5px 14px;
+  font-size: 12px;
 }
 
 .switch {

@@ -289,47 +289,31 @@ function NotesTab({ ai, apiCard }: { ai: boolean; apiCard: ReactNode }) {
       {error && <div className="error-box">{error}</div>}
 
       {batchResults && (
-        <div className="result">
-          {batchResults.map((r) => (
-            <div className="batch-result" key={r.pptxPath}>
-              <h3 className="batch-result-title">{fileName(r.pptxPath)}</h3>
-              {r.scriptPath && <div className="batch-result-note">GPT 대본: {fileName(r.scriptPath)}</div>}
-              {r.summary && (
-                <div className="batch-result-saved">→ 저장됨: {fileName(r.outputPath)}</div>
-              )}
-              {r.error && <div className="error-box">{r.error}</div>}
-              {r.summary && (
-                <>
-                  <div className="result-section">
-                    <h2>적용됨 ({r.summary.applied.length})</h2>
-                    <div className="result-list">
-                      {r.summary.applied.map((res) => (
-                        <div className="result-item ok" key={`ok-${r.pptxPath}-${res.page}`}>
-                          <span className="badge">완료</span>
-                          <span>{res.page}p</span>
-                          <span className="message">{res.message}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  {r.summary.failed.length > 0 && (
-                    <div className="result-section">
-                      <h2>건너뜀 ({r.summary.failed.length})</h2>
-                      <div className="result-list">
-                        {r.summary.failed.map((res) => (
-                          <div className="result-item fail" key={`fail-${r.pptxPath}-${res.page}`}>
-                            <span className="badge">실패</span>
-                            <span>{res.page}p</span>
-                            <span className="message">{res.message}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          ))}
+        <div className="result-lines">
+          {batchResults.map((r) => {
+            const failed = r.summary?.failed ?? []
+            return (
+              <div
+                className={`result-line ${r.error ? 'fail' : failed.length > 0 ? 'warn' : 'ok'}`}
+                key={r.pptxPath}
+                title={[
+                  r.scriptPath && `GPT 대본: ${r.scriptPath}`,
+                  r.error,
+                  ...failed.map((f) => `${f.page}p 건너뜀: ${f.message}`),
+                ]
+                  .filter(Boolean)
+                  .join('\n')}
+              >
+                <span className="result-mark">{r.error ? '✕' : '✓'}</span>
+                <span className="result-name">{fileName(r.pptxPath)}</span>
+                <span className="result-detail">
+                  {r.error
+                    ? r.error.split('\n')[0]
+                    : `→ ${fileName(r.outputPath)} · ${r.summary!.applied.length}장 입력${failed.length > 0 ? ` · ${failed.length}장 건너뜀` : ''}`}
+                </span>
+              </div>
+            )
+          })}
         </div>
       )}
     </>
@@ -352,6 +336,8 @@ export default function App() {
   // 처음 실행하면 모드 선택 화면(null)부터
   const [tab, setTab] = useState<Tab | null>(null)
   const [ai, setAi] = useState<AiConfig>({ enabled: false, apiKey: '' })
+  // 초기화: 이 값을 바꾸면 탭 컴포넌트가 새로 만들어져 넣은 파일·결과·경로가 전부 비워짐
+  const [resetKey, setResetKey] = useState(0)
 
   useEffect(() => {
     invoke<AiConfig>('get_ai_config').then(setAi)
@@ -389,11 +375,18 @@ export default function App() {
               </button>
             ))}
         </div>
-        <label className="switch" title="OpenAI API(gpt-5.6-luna)로 ChatGPT 사이트 없이 앱 안에서 처리">
-          <input type="checkbox" checked={ai.enabled} onChange={(e) => updateAi({ enabled: e.target.checked })} />
-          <span className="switch-track" />
-          GPT 자동
-        </label>
+        <div className="header-right">
+          {tab && (
+            <button className="secondary reset-btn" onClick={() => setResetKey((k) => k + 1)} title="넣은 파일·결과·경로 비우기">
+              초기화
+            </button>
+          )}
+          <label className="switch" title="OpenAI API(gpt-5.6-luna)로 ChatGPT 사이트 없이 앱 안에서 처리">
+            <input type="checkbox" checked={ai.enabled} onChange={(e) => updateAi({ enabled: e.target.checked })} />
+            <span className="switch-track" />
+            GPT 자동
+          </label>
+        </div>
       </div>
       {tab === null ? (
         <div className="steps mode-select">
@@ -405,9 +398,9 @@ export default function App() {
           ))}
         </div>
       ) : tab === 'notes' ? (
-        <NotesTab ai={ai.enabled} apiCard={apiCard} />
+        <NotesTab key={resetKey} ai={ai.enabled} apiCard={apiCard} />
       ) : (
-        <SummaryTab ai={ai.enabled} apiCard={apiCard} />
+        <SummaryTab key={resetKey} ai={ai.enabled} apiCard={apiCard} />
       )}
     </main>
   )

@@ -230,24 +230,27 @@ export default function SummaryTab({ ai, apiCard }: { ai: boolean; apiCard: Reac
       )}
 
       {results && (
-        <div className="result">
-          {results.map((r) => (
-            <div className="batch-result" key={r.txtPath}>
-              <h3 className="batch-result-title">{fileName(r.txtPath)}</h3>
-              {r.summaryTxtPath && <div className="batch-result-note">GPT 요약: {fileName(r.summaryTxtPath)}</div>}
-              {r.result && (
-                <div className="batch-result-saved">
-                  → 저장됨: {fileName(r.result.outputPath)} (총 {r.result.slideCount}페이지)
-                </div>
-              )}
-              {r.result?.warnings.map((w) => (
-                <div className="warn-box" key={w}>
-                  {w}
-                </div>
-              ))}
-              {r.error && <div className="error-box">{r.error}</div>}
-            </div>
-          ))}
+        <div className="result-lines">
+          {results.map((r) => {
+            const warnings = r.result?.warnings ?? []
+            return (
+              <div
+                className={`result-line ${r.error ? 'fail' : warnings.length > 0 ? 'warn' : 'ok'}`}
+                key={r.txtPath}
+                title={[r.summaryTxtPath && `GPT 요약: ${r.summaryTxtPath}`, r.result?.outputPath, r.error, ...warnings]
+                  .filter(Boolean)
+                  .join('\n')}
+              >
+                <span className="result-mark">{r.error ? '✕' : '✓'}</span>
+                <span className="result-name">{fileName(r.txtPath)}</span>
+                <span className="result-detail">
+                  {r.error
+                    ? r.error.split('\n')[0]
+                    : `→ ${fileName(r.result!.outputPath)} · ${r.result!.slideCount}p${warnings.length > 0 ? ` · 경고 ${warnings.length}` : ''}`}
+                </span>
+              </div>
+            )
+          })}
         </div>
       )}
 
